@@ -78,11 +78,13 @@
 #include <list>
 #include <algorithm>
 #include <utility>
+#include <unistd.h>
+#include <fcntl.h>
 #include "node.h"
 
 std::vector<std::pair<std::string, std::string> > varAssignList;
 int val_find(unsigned fos, std::string match){
-        for (unsigned i = varAssignList.size() - 1; i >= 0; i--){
+        for (int i = varAssignList.size() - 1; i >= 0; i--){
                 if (fos == 0 && varAssignList.at(i).first == match)
                         return i;
                 else if (fos == 1 && varAssignList.at(i).second == match)
@@ -109,8 +111,18 @@ int fdl_find(unsigned fos, std::string match){
         return -1;
 }
 std::vector<std::pair<std::string, std::string> > funcCallList;
+int fcl_find(unsigned fos, std::string match){
+        for (unsigned i = 0; i < funcCallList.size(); i++){
+                if (fos == 0 && funcCallList.at(i).first == match)
+                        return i;
+                else if (fos == 1 && funcCallList.at(i).second == match)
+                        return i;
+        }
+        return -1;
+}
 std::vector<int> variable_regs;
 Block *programBlock;
+std::string currentFunction;
 unsigned reg = 0;
 unsigned address = 3000;
 
@@ -143,9 +155,14 @@ std::string Expression_interp(Node* node){
                         Expression_interp(arguments.at(i));
 
                 int a = fdl_find(0, func_name);
-                funcCallList.push_back(make_pair(func_name, funcDeclList.at(a).second));
+                if (fcl_find(0, func_name) == -1)
+                        funcCallList.push_back(make_pair(func_name, funcDeclList.at(a).second));
+
+                int b = fdl_find(0, currentFunction);
+                std::cout << "ST R6, JSRR_BACKUP_" << funcDeclList.at(b).second << std::endl;
                 std::cout << "LD R6, " << func_name << std::endl;
                 std::cout << "JSRR R6\n";
+                std::cout << "LD R6, JSRR_BACKUP_" << funcDeclList.at(b).second << std::endl;
 
                 return "MethodCall";
         }
@@ -197,14 +214,31 @@ std::string Expression_interp(Node* node){
                 Expression& rhs = static_cast<Assignment*>(node)->rhs;
                 std::string rhs_value = Expression_interp(&rhs);
 
+                if (lhs_value == "int" || rhs_value == "int"){
+                        std::cerr << "Error: Type \"int\" cannot be argument.\n";
+                        exit(1);
+                }
+
                 if (rhs.type() == "BinaryOperator"){
-                        std::cout << "ADD " << rhs_value << std::endl;
+                        int left_index = val_find(0, lhs_value);
+                        int baseReg;
+                        if (left_index != -1)
+                                baseReg = variable_regs.at(val_find(0, lhs_value));
+                        else {
+                                std::cerr << "Variable defined but never declared.\n";
+                                exit(1);
+                        }
+                        std::cout << "ADD R" << baseReg << ", " << rhs_value << std::endl;
                 }
                 else if (rhs.type() == "Integer"){
                         int left_index = val_find(0, lhs_value);
                         long long left_reg = -1;
                         if (left_index != -1)
                                 left_reg = variable_regs.at(left_index);
+                        else {
+                                std::cerr << "Variable defined but never declared.\n";
+                                exit(1);
+                        }
 
                         long long numRepititions = val_count(lhs_value);
                         varAssignList.push_back(make_pair(lhs_value, rhs_value));
@@ -246,14 +280,28 @@ void Statement_interp(Node* node){
                 const Identifier& var_type = static_cast<VariableDeclaration*>(node)->var_type;
                 std::string type_name = Expression_interp(&(const_cast<Identifier&>(var_type)));
 
+                if (type_name != "int"){
+                        std::cerr << "Error: invalid type identifier\n";
+                        exit(1);
+                }
+
                 Identifier& id = static_cast<VariableDeclaration*>(node)->id;
                 std::string var_name = Expression_interp(&id);
+
+                if (var_name == "int"){
+                        std::cerr << "Error: type \"int\" cannot be variable name.\n";
+                        exit(1);
+                }
 
                 Expression *assignmentExpr = static_cast<VariableDeclaration*>(node)->assignmentExpr;
                 std::string assignment_value = Expression_interp(assignmentExpr);
 
                 std::cout << "LD R" << reg << ", " << var_name << std::endl;
                 variable_regs.push_back(reg);
+                if (reg >= 6){
+                        std::cerr << "Error: Too many variable declarations.\n";
+                        exit(1);
+                }
                 reg++;
                 varAssignList.push_back(make_pair(var_name, assignment_value));
         }
@@ -261,12 +309,23 @@ void Statement_interp(Node* node){
                 //std::cout << "FunctionDeclaration\n";
                 reg = 0;
                 varAssignList.clear();
+                funcCallList.clear();
 
                 const Identifier& func_type = static_cast<FunctionDeclaration*>(node)->func_type;
                 std::string type_name = Expression_interp(&(const_cast<Identifier&>(func_type)));
 
+                if (type_name != "int" && type_name != "void"){
+                        std::cerr << "Error: invalid type identifier\n";
+                        exit(1);
+                }
+
                 const Identifier& id = static_cast<FunctionDeclaration*>(node)->id;
                 std::string func_name = Expression_interp(&(const_cast<Identifier&>(id)));
+                currentFunction = func_name;
+
+                if (type_name == "int"){
+                        std::cerr << "Error: type \"int\" cannot be variable name.\n";
+                }
 
                 VariableList arguments = static_cast<FunctionDeclaration*>(node)->arguments;
                 for (unsigned i = 0; i < arguments.size(); i++)
@@ -276,8 +335,8 @@ void Statement_interp(Node* node){
                 std::cout << ";Routine: " << func_name << std::endl;
                 std::cout << ";--------------------------------------\n";
 
-                std::cout << ".ORIG x" << address << std::endl;
-                address += 200;
+                int a = fdl_find(0, func_name);
+                std::cout << ".ORIG x" << funcDeclList.at(a).second << std::endl;
 
                 Block& block = static_cast<FunctionDeclaration*>(node)->block;
                 Expression_interp(&block);
@@ -296,9 +355,16 @@ void Statement_interp(Node* node){
                         }
                         existing_labels.push_back(new_label);
 
-                        std::cout << new_label << "\t.FILL\t"
+                        std::cout << new_label << "\t.FILL\t#"
                                   << varAssignList.at(i).second << std::endl;
                 }
+
+                for (unsigned i = 0; i < funcCallList.size(); i++){
+                        std::cout << funcCallList.at(i).first << "\t.FILL\tx" << funcCallList.at(i).second << std::endl;
+                }
+
+                int b = fdl_find(0, currentFunction);
+                std::cout << "JSRR_BACKUP_" << funcDeclList.at(b).second << "\t.BLKW\t#1\n";
 
                 std::cout << ";--------------------------------------\n";
                 std::cout << ";End of routine\n";
@@ -309,7 +375,7 @@ void Statement_interp(Node* node){
 
 
 /* Line 189 of yacc.c  */
-#line 313 "src/parser.cpp"
+#line 379 "src/parser.cpp"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -356,7 +422,7 @@ typedef union YYSTYPE
 {
 
 /* Line 214 of yacc.c  */
-#line 240 "src/lc3c.y"
+#line 306 "src/lc3c.y"
 
         Node *node;
         Block *block;
@@ -373,7 +439,7 @@ typedef union YYSTYPE
 
 
 /* Line 214 of yacc.c  */
-#line 377 "src/parser.cpp"
+#line 443 "src/parser.cpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -385,7 +451,7 @@ typedef union YYSTYPE
 
 
 /* Line 264 of yacc.c  */
-#line 389 "src/parser.cpp"
+#line 455 "src/parser.cpp"
 
 #ifdef short
 # undef short
@@ -668,7 +734,7 @@ static const yytype_int8 yyrhs[] =
       10,    11,    -1,    21,    21,    -1,    21,    21,     7,    22,
       -1,    21,    21,     8,    20,     9,    17,    -1,    -1,    18,
       -1,    20,    12,    18,    -1,     4,    -1,     3,    -1,    21,
-       7,    22,    -1,    21,     8,    24,     9,    -1,    21,    -1,
+       7,    23,    -1,    21,     8,    24,     9,    -1,    21,    -1,
       22,    -1,    23,     5,    23,    -1,    23,     6,    23,    -1,
        8,    23,     9,    -1,    -1,    23,    -1,    24,    12,    23,
       -1
@@ -677,9 +743,9 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   272,   272,   275,   276,   279,   279,   280,   283,   284,
-     287,   288,   291,   295,   296,   297,   300,   303,   306,   307,
-     308,   309,   310,   311,   312,   315,   316,   317
+       0,   338,   338,   341,   342,   345,   345,   346,   349,   350,
+     353,   354,   357,   364,   365,   366,   369,   372,   375,   376,
+     377,   378,   379,   380,   381,   384,   385,   386
 };
 #endif
 
@@ -742,21 +808,21 @@ static const yytype_int8 yydefgoto[] =
 
 /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
    STATE-NUM.  */
-#define YYPACT_NINF -24
+#define YYPACT_NINF -19
 static const yytype_int8 yypact[] =
 {
-      17,   -24,   -24,    17,    24,    17,   -24,   -24,   -24,    25,
-     -24,    40,    41,     1,   -24,   -24,     5,    17,    43,    17,
-      17,   -24,   -24,    40,    26,     5,    27,   -24,   -24,   -24,
-      17,   -24,   -24,    32,    27,    40,    37,    27,    29,     8,
-     -24,   -24,   -24,    19,   -24
+       3,   -19,   -19,     3,    10,     3,   -19,   -19,   -19,    34,
+     -19,    15,    -4,     7,   -19,   -19,     3,     3,    38,     3,
+       3,   -19,    15,    15,    24,    28,    31,   -19,   -19,   -19,
+       3,   -19,   -19,    35,    31,    15,    39,    31,    41,    19,
+     -19,   -19,   -19,    21,   -19
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -24,   -24,     3,    -3,   -24,   -23,   -24,   -24,     0,   -12,
-      -2,   -24
+     -19,   -19,    11,    -3,   -19,   -18,   -19,   -19,     0,    26,
+      -2,   -19
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
@@ -766,22 +832,22 @@ static const yytype_int8 yypgoto[] =
 #define YYTABLE_NINF -1
 static const yytype_uint8 yytable[] =
 {
-       9,    13,    15,    32,    22,     9,    19,    20,     1,    18,
-      21,     1,     2,    31,    41,    23,     3,    27,    28,    42,
-       1,     2,     1,     2,    14,     3,    34,     3,    35,     2,
-      44,     2,    16,    17,    38,    29,    25,    34,    30,     9,
-      15,    36,    43,     9,    37,    19,    20,    39,    16,    17,
-      25,    26
+       9,    13,    15,    16,    17,     9,     1,     2,    32,    18,
+      14,     3,    19,    20,    22,    23,    21,    27,    28,    41,
+      19,    20,     1,     2,     1,     2,    34,     3,    35,     3,
+      42,     1,    44,    29,    38,     2,    30,    34,     2,     9,
+      15,    16,    17,     9,    36,    25,    26,    37,    25,    39,
+      43,    31
 };
 
 static const yytype_uint8 yycheck[] =
 {
-       0,     3,     5,    26,    16,     5,     5,     6,     3,     9,
-       9,     3,     4,    25,    37,    17,     8,    19,    20,    11,
-       3,     4,     3,     4,     0,     8,    26,     8,    30,     4,
-      11,     4,     7,     8,    34,     9,     7,    37,    12,    39,
-      43,     9,    39,    43,    12,     5,     6,    10,     7,     8,
-       7,     8
+       0,     3,     5,     7,     8,     5,     3,     4,    26,     9,
+       0,     8,     5,     6,    16,    17,     9,    19,    20,    37,
+       5,     6,     3,     4,     3,     4,    26,     8,    30,     8,
+      11,     3,    11,     9,    34,     4,    12,    37,     4,    39,
+      43,     7,     8,    43,     9,     7,     8,    12,     7,    10,
+      39,    25
 };
 
 /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
@@ -790,7 +856,7 @@ static const yytype_uint8 yystos[] =
 {
        0,     3,     4,     8,    14,    15,    16,    18,    19,    21,
       22,    23,    21,    23,     0,    16,     7,     8,    21,     5,
-       6,     9,    22,    23,    24,     7,     8,    23,    23,     9,
+       6,     9,    23,    23,    24,     7,     8,    23,    23,     9,
       12,    22,    18,    20,    21,    23,     9,    12,    21,    10,
       17,    18,    11,    15,    11
 };
@@ -1606,168 +1672,171 @@ yyreduce:
         case 2:
 
 /* Line 1455 of yacc.c  */
-#line 272 "src/lc3c.y"
+#line 338 "src/lc3c.y"
     { programBlock = (yyvsp[(1) - (1)].block); ;}
     break;
 
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 275 "src/lc3c.y"
+#line 341 "src/lc3c.y"
     { (yyval.block) = new Block(); (yyval.block)->statements.push_back((yyvsp[(1) - (1)].stmt)); ;}
     break;
 
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 276 "src/lc3c.y"
+#line 342 "src/lc3c.y"
     { (yyvsp[(1) - (2)].block)->statements.push_back((yyvsp[(2) - (2)].stmt)); ;}
     break;
 
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 280 "src/lc3c.y"
+#line 346 "src/lc3c.y"
     { (yyval.stmt) = new ExpressionStatement(*(yyvsp[(1) - (1)].expr)); ;}
     break;
 
   case 8:
 
 /* Line 1455 of yacc.c  */
-#line 283 "src/lc3c.y"
+#line 349 "src/lc3c.y"
     { (yyval.block) = (yyvsp[(2) - (3)].block); ;}
     break;
 
   case 9:
 
 /* Line 1455 of yacc.c  */
-#line 284 "src/lc3c.y"
+#line 350 "src/lc3c.y"
     { (yyval.block) = new Block(); ;}
     break;
 
   case 10:
 
 /* Line 1455 of yacc.c  */
-#line 287 "src/lc3c.y"
+#line 353 "src/lc3c.y"
     { (yyval.stmt) = new VariableDeclaration(*(yyvsp[(1) - (2)].ident), *(yyvsp[(2) - (2)].ident));;}
     break;
 
   case 11:
 
 /* Line 1455 of yacc.c  */
-#line 288 "src/lc3c.y"
+#line 354 "src/lc3c.y"
     { (yyval.stmt) = new VariableDeclaration(*(yyvsp[(1) - (4)].ident), *(yyvsp[(2) - (4)].ident), (yyvsp[(4) - (4)].numeric));;}
     break;
 
   case 12:
 
 /* Line 1455 of yacc.c  */
-#line 292 "src/lc3c.y"
-    { (yyval.stmt) = new FunctionDeclaration(*(yyvsp[(1) - (6)].ident), *(yyvsp[(2) - (6)].ident), *(yyvsp[(4) - (6)].varvec), *(yyvsp[(6) - (6)].block)); delete (yyvsp[(4) - (6)].varvec);;}
+#line 358 "src/lc3c.y"
+    { (yyval.stmt) = new FunctionDeclaration(*(yyvsp[(1) - (6)].ident), *(yyvsp[(2) - (6)].ident), *(yyvsp[(4) - (6)].varvec), *(yyvsp[(6) - (6)].block));
+           funcDeclList.push_back(make_pair((yyvsp[(2) - (6)].ident)->name, std::to_string((long long)address)));
+           address+=200;
+           delete (yyvsp[(4) - (6)].varvec);;}
     break;
 
   case 13:
 
 /* Line 1455 of yacc.c  */
-#line 295 "src/lc3c.y"
+#line 364 "src/lc3c.y"
     { (yyval.varvec) = new VariableList(); ;}
     break;
 
   case 14:
 
 /* Line 1455 of yacc.c  */
-#line 296 "src/lc3c.y"
+#line 365 "src/lc3c.y"
     { (yyval.varvec) = new VariableList(); (yyval.varvec)->push_back((yyvsp[(1) - (1)].var_decl)); ;}
     break;
 
   case 15:
 
 /* Line 1455 of yacc.c  */
-#line 297 "src/lc3c.y"
+#line 366 "src/lc3c.y"
     { (yyvsp[(1) - (3)].varvec)->push_back((yyvsp[(3) - (3)].var_decl)); ;}
     break;
 
   case 16:
 
 /* Line 1455 of yacc.c  */
-#line 300 "src/lc3c.y"
+#line 369 "src/lc3c.y"
     { (yyval.ident) = new Identifier(*(yyvsp[(1) - (1)].strVal)); delete (yyvsp[(1) - (1)].strVal); ;}
     break;
 
   case 17:
 
 /* Line 1455 of yacc.c  */
-#line 303 "src/lc3c.y"
+#line 372 "src/lc3c.y"
     { (yyval.numeric) = new Integer(atoi((yyvsp[(1) - (1)].strVal)->c_str())); delete (yyvsp[(1) - (1)].strVal); ;}
     break;
 
   case 18:
 
 /* Line 1455 of yacc.c  */
-#line 306 "src/lc3c.y"
-    { (yyval.expr) = new Assignment(*(yyvsp[(1) - (3)].ident), *(yyvsp[(3) - (3)].numeric));;}
+#line 375 "src/lc3c.y"
+    { (yyval.expr) = new Assignment(*(yyvsp[(1) - (3)].ident), *(yyvsp[(3) - (3)].expr));;}
     break;
 
   case 19:
 
 /* Line 1455 of yacc.c  */
-#line 307 "src/lc3c.y"
+#line 376 "src/lc3c.y"
     { (yyval.expr) = new MethodCall(*(yyvsp[(1) - (4)].ident), *(yyvsp[(3) - (4)].exprvec)); delete (yyvsp[(3) - (4)].exprvec); ;}
     break;
 
   case 20:
 
 /* Line 1455 of yacc.c  */
-#line 308 "src/lc3c.y"
+#line 377 "src/lc3c.y"
     { (yyval.ident) = (yyvsp[(1) - (1)].ident); ;}
     break;
 
   case 22:
 
 /* Line 1455 of yacc.c  */
-#line 310 "src/lc3c.y"
+#line 379 "src/lc3c.y"
     { (yyval.expr) = new BinaryOperator(*(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
     break;
 
   case 23:
 
 /* Line 1455 of yacc.c  */
-#line 311 "src/lc3c.y"
+#line 380 "src/lc3c.y"
     { (yyval.expr) = new BinaryOperator(*(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
     break;
 
   case 24:
 
 /* Line 1455 of yacc.c  */
-#line 312 "src/lc3c.y"
+#line 381 "src/lc3c.y"
     { (yyval.expr) = (yyvsp[(2) - (3)].expr); ;}
     break;
 
   case 25:
 
 /* Line 1455 of yacc.c  */
-#line 315 "src/lc3c.y"
+#line 384 "src/lc3c.y"
     { (yyval.exprvec) = new ExpressionList(); ;}
     break;
 
   case 26:
 
 /* Line 1455 of yacc.c  */
-#line 316 "src/lc3c.y"
+#line 385 "src/lc3c.y"
     { (yyval.exprvec) = new ExpressionList(); (yyval.exprvec)->push_back((yyvsp[(1) - (1)].expr)); ;}
     break;
 
   case 27:
 
 /* Line 1455 of yacc.c  */
-#line 317 "src/lc3c.y"
+#line 386 "src/lc3c.y"
     { (yyvsp[(1) - (3)].exprvec)->push_back((yyvsp[(3) - (3)].expr)); ;}
     break;
 
 
 
 /* Line 1455 of yacc.c  */
-#line 1771 "src/parser.cpp"
+#line 1840 "src/parser.cpp"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1979,12 +2048,21 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 320 "src/lc3c.y"
+#line 389 "src/lc3c.y"
 
 
-int main() {
+int main(int argc, char **argv) {
+        if (argc > 1){
+                int fd = 0;
+                if (-1 == (fd = open(argv[1], O_RDONLY, 0666))){
+                        perror("File does not exist.");
+                        return -1;
+                }
+                if (-1 == dup2(fd, 0))
+                        perror("There was an error with dup2()");
+        }
+
         yyparse();
-
         Expression_interp(programBlock);
 
         return 0;

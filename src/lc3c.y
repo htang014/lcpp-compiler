@@ -7,11 +7,13 @@
 #include <list>
 #include <algorithm>
 #include <utility>
+#include <unistd.h>
+#include <fcntl.h>
 #include "node.h"
 
 std::vector<std::pair<std::string, std::string> > varAssignList;
 int val_find(unsigned fos, std::string match){
-        for (unsigned i = varAssignList.size() - 1; i >= 0; i--){
+        for (int i = varAssignList.size() - 1; i >= 0; i--){
                 if (fos == 0 && varAssignList.at(i).first == match)
                         return i;
                 else if (fos == 1 && varAssignList.at(i).second == match)
@@ -38,8 +40,18 @@ int fdl_find(unsigned fos, std::string match){
         return -1;
 }
 std::vector<std::pair<std::string, std::string> > funcCallList;
+int fcl_find(unsigned fos, std::string match){
+        for (unsigned i = 0; i < funcCallList.size(); i++){
+                if (fos == 0 && funcCallList.at(i).first == match)
+                        return i;
+                else if (fos == 1 && funcCallList.at(i).second == match)
+                        return i;
+        }
+        return -1;
+}
 std::vector<int> variable_regs;
 Block *programBlock;
+std::string currentFunction;
 unsigned reg = 0;
 unsigned address = 3000;
 
@@ -72,9 +84,14 @@ std::string Expression_interp(Node* node){
                         Expression_interp(arguments.at(i));
 
                 int a = fdl_find(0, func_name);
-                funcCallList.push_back(make_pair(func_name, funcDeclList.at(a).second));
+                if (fcl_find(0, func_name) == -1)
+                        funcCallList.push_back(make_pair(func_name, funcDeclList.at(a).second));
+
+                int b = fdl_find(0, currentFunction);
+                std::cout << "ST R6, JSRR_BACKUP_" << funcDeclList.at(b).second << std::endl;
                 std::cout << "LD R6, " << func_name << std::endl;
                 std::cout << "JSRR R6\n";
+                std::cout << "LD R6, JSRR_BACKUP_" << funcDeclList.at(b).second << std::endl;
 
                 return "MethodCall";
         }
@@ -126,14 +143,31 @@ std::string Expression_interp(Node* node){
                 Expression& rhs = static_cast<Assignment*>(node)->rhs;
                 std::string rhs_value = Expression_interp(&rhs);
 
+                if (lhs_value == "int" || rhs_value == "int"){
+                        std::cerr << "Error: Type \"int\" cannot be argument.\n";
+                        exit(1);
+                }
+
                 if (rhs.type() == "BinaryOperator"){
-                        std::cout << "ADD " << rhs_value << std::endl;
+                        int left_index = val_find(0, lhs_value);
+                        int baseReg;
+                        if (left_index != -1)
+                                baseReg = variable_regs.at(val_find(0, lhs_value));
+                        else {
+                                std::cerr << "Variable defined but never declared.\n";
+                                exit(1);
+                        }
+                        std::cout << "ADD R" << baseReg << ", " << rhs_value << std::endl;
                 }
                 else if (rhs.type() == "Integer"){
                         int left_index = val_find(0, lhs_value);
                         long long left_reg = -1;
                         if (left_index != -1)
                                 left_reg = variable_regs.at(left_index);
+                        else {
+                                std::cerr << "Variable defined but never declared.\n";
+                                exit(1);
+                        }
 
                         long long numRepititions = val_count(lhs_value);
                         varAssignList.push_back(make_pair(lhs_value, rhs_value));
@@ -175,14 +209,28 @@ void Statement_interp(Node* node){
                 const Identifier& var_type = static_cast<VariableDeclaration*>(node)->var_type;
                 std::string type_name = Expression_interp(&(const_cast<Identifier&>(var_type)));
 
+                if (type_name != "int"){
+                        std::cerr << "Error: invalid type identifier\n";
+                        exit(1);
+                }
+
                 Identifier& id = static_cast<VariableDeclaration*>(node)->id;
                 std::string var_name = Expression_interp(&id);
+
+                if (var_name == "int"){
+                        std::cerr << "Error: type \"int\" cannot be variable name.\n";
+                        exit(1);
+                }
 
                 Expression *assignmentExpr = static_cast<VariableDeclaration*>(node)->assignmentExpr;
                 std::string assignment_value = Expression_interp(assignmentExpr);
 
                 std::cout << "LD R" << reg << ", " << var_name << std::endl;
                 variable_regs.push_back(reg);
+                if (reg >= 6){
+                        std::cerr << "Error: Too many variable declarations.\n";
+                        exit(1);
+                }
                 reg++;
                 varAssignList.push_back(make_pair(var_name, assignment_value));
         }
@@ -190,12 +238,23 @@ void Statement_interp(Node* node){
                 //std::cout << "FunctionDeclaration\n";
                 reg = 0;
                 varAssignList.clear();
+                funcCallList.clear();
 
                 const Identifier& func_type = static_cast<FunctionDeclaration*>(node)->func_type;
                 std::string type_name = Expression_interp(&(const_cast<Identifier&>(func_type)));
 
+                if (type_name != "int" && type_name != "void"){
+                        std::cerr << "Error: invalid type identifier\n";
+                        exit(1);
+                }
+
                 const Identifier& id = static_cast<FunctionDeclaration*>(node)->id;
                 std::string func_name = Expression_interp(&(const_cast<Identifier&>(id)));
+                currentFunction = func_name;
+
+                if (type_name == "int"){
+                        std::cerr << "Error: type \"int\" cannot be variable name.\n";
+                }
 
                 VariableList arguments = static_cast<FunctionDeclaration*>(node)->arguments;
                 for (unsigned i = 0; i < arguments.size(); i++)
@@ -205,8 +264,8 @@ void Statement_interp(Node* node){
                 std::cout << ";Routine: " << func_name << std::endl;
                 std::cout << ";--------------------------------------\n";
 
-                std::cout << ".ORIG x" << address << std::endl;
-                address += 200;
+                int a = fdl_find(0, func_name);
+                std::cout << ".ORIG x" << funcDeclList.at(a).second << std::endl;
 
                 Block& block = static_cast<FunctionDeclaration*>(node)->block;
                 Expression_interp(&block);
@@ -225,9 +284,16 @@ void Statement_interp(Node* node){
                         }
                         existing_labels.push_back(new_label);
 
-                        std::cout << new_label << "\t.FILL\t"
+                        std::cout << new_label << "\t.FILL\t#"
                                   << varAssignList.at(i).second << std::endl;
                 }
+
+                for (unsigned i = 0; i < funcCallList.size(); i++){
+                        std::cout << funcCallList.at(i).first << "\t.FILL\tx" << funcCallList.at(i).second << std::endl;
+                }
+
+                int b = fdl_find(0, currentFunction);
+                std::cout << "JSRR_BACKUP_" << funcDeclList.at(b).second << "\t.BLKW\t#1\n";
 
                 std::cout << ";--------------------------------------\n";
                 std::cout << ";End of routine\n";
@@ -289,7 +355,10 @@ var_decl : ident ident { $$ = new VariableDeclaration(*$1, *$2);}
          ;
 
 func_decl : ident ident OP func_decl_args CP block
-           { $$ = new FunctionDeclaration(*$1, *$2, *$4, *$6); delete $4;}
+           { $$ = new FunctionDeclaration(*$1, *$2, *$4, *$6);
+           funcDeclList.push_back(make_pair($2->name, std::to_string((long long)address)));
+           address+=200;
+           delete $4;}
           ;
 
 func_decl_args : /*nothing*/ { $$ = new VariableList(); }
@@ -303,7 +372,7 @@ ident : ID { $$ = new Identifier(*$1); delete $1; }
 numeric : INT { $$ = new Integer(atoi($1->c_str())); delete $1; }
         ;
 
-expr : ident EQL numeric { $$ = new Assignment(*$<ident>1, *$3);}
+expr : ident EQL expr { $$ = new Assignment(*$<ident>1, *$3);}
      | ident OP call_args CP { $$ = new MethodCall(*$1, *$3); delete $3; }
      | ident { $<ident>$ = $1; }
      | numeric
@@ -319,9 +388,18 @@ call_args : /*nothing*/ { $$ = new ExpressionList(); }
 
 %%
 
-int main() {
-        yyparse();
+int main(int argc, char **argv) {
+        if (argc > 1){
+                int fd = 0;
+                if (-1 == (fd = open(argv[1], O_RDONLY, 0666))){
+                        perror("File does not exist.");
+                        return -1;
+                }
+                if (-1 == dup2(fd, 0))
+                        perror("There was an error with dup2()");
+        }
 
+        yyparse();
         Expression_interp(programBlock);
 
         return 0;

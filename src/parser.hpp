@@ -59,7 +59,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 240 "src/lc3c.y"
+#line 306 "src/lc3c.y"
 
         Node *node;
         Block *block;
