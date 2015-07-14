@@ -70,312 +70,15 @@
 /* Line 189 of yacc.c  */
 #line 1 "src/lc3c.y"
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <cstdio>
-#include <cstdlib>
-#include <list>
-#include <algorithm>
-#include <utility>
-#include <unistd.h>
-#include <fcntl.h>
-#include "node.h"
+#include "scanAST.h"
 
-std::vector<std::pair<std::string, std::string> > varAssignList;
-int val_find(unsigned fos, std::string match){
-        for (int i = varAssignList.size() - 1; i >= 0; i--){
-                if (fos == 0 && varAssignList.at(i).first == match)
-                        return i;
-                else if (fos == 1 && varAssignList.at(i).second == match)
-                        return i;
-        }
-        return -1;
-}
-int val_count(std::string match){
-        int count = 0;
-        for (unsigned i = 0; i < varAssignList.size(); i++){
-                if (varAssignList.at(i).first == match)
-                        count++;
-        }
-        return count;
-}
-std::vector<std::pair<std::string, std::string> > funcDeclList;
-int fdl_find(unsigned fos, std::string match){
-        for (unsigned i = 0; i < funcDeclList.size(); i++){
-                if (fos == 0 && funcDeclList.at(i).first == match)
-                        return i;
-                else if (fos == 1 && funcDeclList.at(i).second == match)
-                        return i;
-        }
-        return -1;
-}
-std::vector<std::pair<std::string, std::string> > funcCallList;
-int fcl_find(unsigned fos, std::string match){
-        for (unsigned i = 0; i < funcCallList.size(); i++){
-                if (fos == 0 && funcCallList.at(i).first == match)
-                        return i;
-                else if (fos == 1 && funcCallList.at(i).second == match)
-                        return i;
-        }
-        return -1;
-}
-std::vector<int> variable_regs;
 Block *programBlock;
-std::string currentFunction;
-unsigned reg = 0;
-unsigned address = 3000;
-
 extern int yylex();
 void yyerror(const char *s);
 
-void Statement_interp(Node* node);
-std::string Expression_interp(Node* node);
-
-std::string Expression_interp(Node* node){
-        //std::cout << "Expression\n";
-
-        if (node->type() == "Integer"){
-                //std::cout << "Integer: " << static_cast<Integer*>(node)->value << std::endl;
-                long long value = static_cast<Integer*>(node)->value;
-                return std::to_string(value);
-        }
-        if (node->type() == "Identifier"){
-                //std::cout << "Identifier: " << static_cast<Identifier*>(node)->name << std::endl;
-                return static_cast<Identifier*>(node)->name;
-        }
-        if (node->type() == "MethodCall"){
-                //std::cout << "MethodCall\n";
-
-                const Identifier& id = static_cast<MethodCall*>(node)->id;
-                std::string func_name = Expression_interp(const_cast<Identifier*>(&id));
-
-                ExpressionList arguments = static_cast<MethodCall*>(node)->arguments;
-                for (unsigned i = 0; i < arguments.size(); i++)
-                        Expression_interp(arguments.at(i));
-
-                int a = fdl_find(0, func_name);
-                if (fcl_find(0, func_name) == -1)
-                        funcCallList.push_back(make_pair(func_name, funcDeclList.at(a).second));
-
-                int b = fdl_find(0, currentFunction);
-                std::cout << "ST R6, JSRR_BACKUP_" << funcDeclList.at(b).second << std::endl;
-                std::cout << "LD R6, " << func_name << std::endl;
-                std::cout << "JSRR R6\n";
-                std::cout << "LD R6, JSRR_BACKUP_" << funcDeclList.at(b).second << std::endl;
-
-                return "MethodCall";
-        }
-
-        if (node->type() == "BinaryOperator"){
-                //std::cout << "BinaryOperator: " << static_cast<BinaryOperator*>(node)->op << std::endl;
-
-                int op = static_cast<BinaryOperator*>(node)->op;
-
-                Expression& lhs = static_cast<BinaryOperator*>(node)->lhs;
-                std::string left_value = Expression_interp(&lhs);
-
-                Expression& rhs = static_cast<BinaryOperator*>(node)->rhs;
-                std::string right_value = Expression_interp(&rhs);
-
-                int left_index = val_find(0, left_value);
-                int right_index = val_find(0, right_value);
-
-                long long left_reg = -1;
-                long long right_reg = -1;
-
-                if (left_index != -1)
-                        left_reg = variable_regs.at(left_index);
-                if (right_index != -1)                        
-                        right_reg = variable_regs.at(right_index);
-
-                if (op == 0){
-                        std::string output;
-                        if (rhs.type() == "Integer"){
-                                long long value = static_cast<Integer&>(rhs).value;
-                                output = "R" + std::to_string(left_reg) + ", #" + std::to_string(value) + "\n";
-                        }
-                        else if (rhs.type() == "Identifier"){
-                                output =  "R" + std::to_string(left_reg) + ", R" + std::to_string(right_reg) + "\n";
-                        }
-                        return output;
-                }
-                std::cerr << "Error: bad binary operator.\n";
-                exit(1);
-                return "";
-        }
-
-        if (node->type() == "Assignment"){
-                //std::cout << "Assignment\n";
-
-                Identifier& lhs = static_cast<Assignment*>(node)->lhs;
-                std::string lhs_value = Expression_interp(&lhs);
-
-                Expression& rhs = static_cast<Assignment*>(node)->rhs;
-                std::string rhs_value = Expression_interp(&rhs);
-
-                if (lhs_value == "int" || rhs_value == "int"){
-                        std::cerr << "Error: Type \"int\" cannot be argument.\n";
-                        exit(1);
-                }
-
-                if (rhs.type() == "BinaryOperator"){
-                        int left_index = val_find(0, lhs_value);
-                        int baseReg;
-                        if (left_index != -1)
-                                baseReg = variable_regs.at(val_find(0, lhs_value));
-                        else {
-                                std::cerr << "Variable defined but never declared.\n";
-                                exit(1);
-                        }
-                        std::cout << "ADD R" << baseReg << ", " << rhs_value << std::endl;
-                }
-                else if (rhs.type() == "Integer"){
-                        int left_index = val_find(0, lhs_value);
-                        long long left_reg = -1;
-                        if (left_index != -1)
-                                left_reg = variable_regs.at(left_index);
-                        else {
-                                std::cerr << "Variable defined but never declared.\n";
-                                exit(1);
-                        }
-
-                        long long numRepititions = val_count(lhs_value);
-                        varAssignList.push_back(make_pair(lhs_value, rhs_value));
-                        variable_regs.push_back(left_reg);
-
-                        std::string new_label = lhs_value + "_" + std::to_string(numRepititions);
-
-                        std::cout << "LD R" << left_reg << ", " << new_label << std::endl;
-                        return rhs_value;
-                }
-                return "Assignment";
-        }
-
-        if (node->type() == "Block"){
-                //std::cout << "Block\n";
-
-                StatementList statements = static_cast<Block*>(node)->statements;
-                for (unsigned i = 0; i < statements.size(); i++){
-                        Statement_interp(statements.at(i));
-                }
-                return "Block";
-        }
-        return "Expression";
-
-}
-
-void Statement_interp(Node* node){
-        //std::cout << "Statement\n";
-
-        if (node->type() == "ExpressionStatement"){
-                //std::cout << "ExpressionStatement\n";
-
-                Expression& expression = static_cast<ExpressionStatement*>(node)->expression;
-                Expression_interp(&expression);
-        }
-        if (node->type() == "VariableDeclaration"){
-                //std::cout << "VariableDeclaration\n";
-
-                const Identifier& var_type = static_cast<VariableDeclaration*>(node)->var_type;
-                std::string type_name = Expression_interp(&(const_cast<Identifier&>(var_type)));
-
-                if (type_name != "int"){
-                        std::cerr << "Error: invalid type identifier\n";
-                        exit(1);
-                }
-
-                Identifier& id = static_cast<VariableDeclaration*>(node)->id;
-                std::string var_name = Expression_interp(&id);
-
-                if (var_name == "int"){
-                        std::cerr << "Error: type \"int\" cannot be variable name.\n";
-                        exit(1);
-                }
-
-                Expression *assignmentExpr = static_cast<VariableDeclaration*>(node)->assignmentExpr;
-                std::string assignment_value = Expression_interp(assignmentExpr);
-
-                std::cout << "LD R" << reg << ", " << var_name << std::endl;
-                variable_regs.push_back(reg);
-                if (reg >= 6){
-                        std::cerr << "Error: Too many variable declarations.\n";
-                        exit(1);
-                }
-                reg++;
-                varAssignList.push_back(make_pair(var_name, assignment_value));
-        }
-        if (node->type() == "FunctionDeclaration"){
-                //std::cout << "FunctionDeclaration\n";
-                reg = 0;
-                varAssignList.clear();
-                funcCallList.clear();
-
-                const Identifier& func_type = static_cast<FunctionDeclaration*>(node)->func_type;
-                std::string type_name = Expression_interp(&(const_cast<Identifier&>(func_type)));
-
-                if (type_name != "int" && type_name != "void"){
-                        std::cerr << "Error: invalid type identifier\n";
-                        exit(1);
-                }
-
-                const Identifier& id = static_cast<FunctionDeclaration*>(node)->id;
-                std::string func_name = Expression_interp(&(const_cast<Identifier&>(id)));
-                currentFunction = func_name;
-
-                if (type_name == "int"){
-                        std::cerr << "Error: type \"int\" cannot be variable name.\n";
-                }
-
-                VariableList arguments = static_cast<FunctionDeclaration*>(node)->arguments;
-                for (unsigned i = 0; i < arguments.size(); i++)
-                        Expression_interp(arguments.at(i));
-
-                std::cout << ";--------------------------------------\n";
-                std::cout << ";Routine: " << func_name << std::endl;
-                std::cout << ";--------------------------------------\n";
-
-                int a = fdl_find(0, func_name);
-                std::cout << ".ORIG x" << funcDeclList.at(a).second << std::endl;
-
-                Block& block = static_cast<FunctionDeclaration*>(node)->block;
-                Expression_interp(&block);
-
-                std::cout << ";------------\n";
-                std::cout << ";Routine Data\n";
-                std::cout << ";------------\n";
-
-                for (unsigned i = 0; i < varAssignList.size(); i++){
-                        long long count = 0;
-                        std::string new_label = varAssignList.at(i).first;
-                        std::vector<std::string> existing_labels;
-
-                        while (std::find(existing_labels.begin(), existing_labels.end(), new_label) != existing_labels.end()){
-                                new_label = varAssignList.at(i).first + "_" + std::to_string(count);
-                        }
-                        existing_labels.push_back(new_label);
-
-                        std::cout << new_label << "\t.FILL\t#"
-                                  << varAssignList.at(i).second << std::endl;
-                }
-
-                for (unsigned i = 0; i < funcCallList.size(); i++){
-                        std::cout << funcCallList.at(i).first << "\t.FILL\tx" << funcCallList.at(i).second << std::endl;
-                }
-
-                int b = fdl_find(0, currentFunction);
-                std::cout << "JSRR_BACKUP_" << funcDeclList.at(b).second << "\t.BLKW\t#1\n";
-
-                std::cout << ";--------------------------------------\n";
-                std::cout << ";End of routine\n";
-                std::cout << ";--------------------------------------\n";
-
-        }
-}
-
 
 /* Line 189 of yacc.c  */
-#line 379 "src/parser.cpp"
+#line 82 "src/parser.cpp"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -407,11 +110,19 @@ void Statement_interp(Node* node){
      ADD = 260,
      SUB = 261,
      EQL = 262,
-     OP = 263,
-     CP = 264,
-     OB = 265,
-     CB = 266,
-     COMMA = 267
+     ISGT = 263,
+     ISLT = 264,
+     ISGTE = 265,
+     ISLTE = 266,
+     ISEQ = 267,
+     OP = 268,
+     CP = 269,
+     OB = 270,
+     CB = 271,
+     COMMA = 272,
+     DO = 273,
+     WHILE = 274,
+     IF = 275
    };
 #endif
 
@@ -422,7 +133,7 @@ typedef union YYSTYPE
 {
 
 /* Line 214 of yacc.c  */
-#line 306 "src/lc3c.y"
+#line 9 "src/lc3c.y"
 
         Node *node;
         Block *block;
@@ -439,7 +150,7 @@ typedef union YYSTYPE
 
 
 /* Line 214 of yacc.c  */
-#line 443 "src/parser.cpp"
+#line 154 "src/parser.cpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -451,7 +162,7 @@ typedef union YYSTYPE
 
 
 /* Line 264 of yacc.c  */
-#line 455 "src/parser.cpp"
+#line 166 "src/parser.cpp"
 
 #ifdef short
 # undef short
@@ -664,22 +375,22 @@ union yyalloc
 #endif
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  14
+#define YYFINAL  22
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   51
+#define YYLAST   102
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  13
+#define YYNTOKENS  21
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  12
+#define YYNNTS  15
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  27
+#define YYNRULES  37
 /* YYNRULES -- Number of states.  */
-#define YYNSTATES  45
+#define YYNSTATES  70
 
 /* YYTRANSLATE(YYLEX) -- Bison symbol number corresponding to YYLEX.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   267
+#define YYMAXUTOK   275
 
 #define YYTRANSLATE(YYX)						\
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -713,7 +424,8 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5,     6,     7,     8,     9,    10,    11,    12
+       5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
+      15,    16,    17,    18,    19,    20
 };
 
 #if YYDEBUG
@@ -721,31 +433,36 @@ static const yytype_uint8 yytranslate[] =
    YYRHS.  */
 static const yytype_uint8 yyprhs[] =
 {
-       0,     0,     3,     5,     7,    10,    12,    14,    16,    20,
-      23,    26,    31,    38,    39,    41,    45,    47,    49,    53,
-      58,    60,    62,    66,    70,    74,    75,    77
+       0,     0,     3,     5,     7,    10,    12,    14,    16,    18,
+      20,    24,    27,    30,    35,    42,    43,    45,    49,    56,
+      62,    64,    66,    70,    75,    77,    79,    81,    85,    89,
+      93,    94,    96,   100,   104,   108,   112,   116
 };
 
 /* YYRHS -- A `-1'-separated list of the rules' RHS.  */
 static const yytype_int8 yyrhs[] =
 {
-      14,     0,    -1,    15,    -1,    16,    -1,    15,    16,    -1,
-      18,    -1,    19,    -1,    23,    -1,    10,    15,    11,    -1,
-      10,    11,    -1,    21,    21,    -1,    21,    21,     7,    22,
-      -1,    21,    21,     8,    20,     9,    17,    -1,    -1,    18,
-      -1,    20,    12,    18,    -1,     4,    -1,     3,    -1,    21,
-       7,    23,    -1,    21,     8,    24,     9,    -1,    21,    -1,
-      22,    -1,    23,     5,    23,    -1,    23,     6,    23,    -1,
-       8,    23,     9,    -1,    -1,    23,    -1,    24,    12,    23,
-      -1
+      22,     0,    -1,    23,    -1,    24,    -1,    23,    24,    -1,
+      26,    -1,    27,    -1,    30,    -1,    29,    -1,    33,    -1,
+      15,    23,    16,    -1,    15,    16,    -1,    31,    31,    -1,
+      31,    31,     7,    32,    -1,    31,    31,    13,    28,    14,
+      25,    -1,    -1,    26,    -1,    28,    17,    26,    -1,    18,
+      25,    19,    13,    35,    14,    -1,    20,    13,    35,    14,
+      25,    -1,     4,    -1,     3,    -1,    31,     7,    33,    -1,
+      31,    13,    34,    14,    -1,    31,    -1,    32,    -1,    35,
+      -1,    33,     5,    33,    -1,    33,     6,    33,    -1,    13,
+      33,    14,    -1,    -1,    33,    -1,    34,    17,    33,    -1,
+      33,     8,    33,    -1,    33,    10,    33,    -1,    33,     9,
+      33,    -1,    33,    11,    33,    -1,    33,    12,    33,    -1
 };
 
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
-static const yytype_uint16 yyrline[] =
+static const yytype_uint8 yyrline[] =
 {
-       0,   338,   338,   341,   342,   345,   345,   346,   349,   350,
-     353,   354,   357,   364,   365,   366,   369,   372,   375,   376,
-     377,   378,   379,   380,   381,   384,   385,   386
+       0,    42,    42,    45,    46,    49,    49,    49,    49,    50,
+      53,    54,    57,    58,    61,    67,    68,    69,    72,    76,
+      79,    82,    85,    86,    87,    88,    89,    90,    91,    92,
+      95,    96,    97,   100,   101,   102,   103,   104
 };
 #endif
 
@@ -754,10 +471,11 @@ static const yytype_uint16 yyrline[] =
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "$end", "error", "$undefined", "INT", "ID", "ADD", "SUB", "EQL", "OP",
-  "CP", "OB", "CB", "COMMA", "$accept", "program", "stmts", "stmt",
-  "block", "var_decl", "func_decl", "func_decl_args", "ident", "numeric",
-  "expr", "call_args", 0
+  "$end", "error", "$undefined", "INT", "ID", "ADD", "SUB", "EQL", "ISGT",
+  "ISLT", "ISGTE", "ISLTE", "ISEQ", "OP", "CP", "OB", "CB", "COMMA", "DO",
+  "WHILE", "IF", "$accept", "program", "stmts", "stmt", "block",
+  "var_decl", "func_decl", "func_decl_args", "do_while_statement",
+  "if_statement", "ident", "numeric", "expr", "call_args", "condition", 0
 };
 #endif
 
@@ -767,24 +485,27 @@ static const char *const yytname[] =
 static const yytype_uint16 yytoknum[] =
 {
        0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
-     265,   266,   267
+     265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
+     275
 };
 # endif
 
 /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    13,    14,    15,    15,    16,    16,    16,    17,    17,
-      18,    18,    19,    20,    20,    20,    21,    22,    23,    23,
-      23,    23,    23,    23,    23,    24,    24,    24
+       0,    21,    22,    23,    23,    24,    24,    24,    24,    24,
+      25,    25,    26,    26,    27,    28,    28,    28,    29,    30,
+      31,    32,    33,    33,    33,    33,    33,    33,    33,    33,
+      34,    34,    34,    35,    35,    35,    35,    35
 };
 
 /* YYR2[YYN] -- Number of symbols composing right hand side of rule YYN.  */
 static const yytype_uint8 yyr2[] =
 {
-       0,     2,     1,     1,     2,     1,     1,     1,     3,     2,
-       2,     4,     6,     0,     1,     3,     1,     1,     3,     4,
-       1,     1,     3,     3,     3,     0,     1,     3
+       0,     2,     1,     1,     2,     1,     1,     1,     1,     1,
+       3,     2,     2,     4,     6,     0,     1,     3,     6,     5,
+       1,     1,     3,     4,     1,     1,     1,     3,     3,     3,
+       0,     1,     3,     3,     3,     3,     3,     3
 };
 
 /* YYDEFACT[STATE-NAME] -- Default rule to reduce with in state
@@ -792,37 +513,41 @@ static const yytype_uint8 yyr2[] =
    means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-       0,    17,    16,     0,     0,     2,     3,     5,     6,    20,
-      21,     7,    20,     0,     1,     4,     0,    25,    10,     0,
-       0,    24,    18,    26,     0,     0,    13,    22,    23,    19,
-       0,    11,    14,     0,     0,    27,     0,     0,    10,     0,
-      12,    15,     9,     0,     8
+       0,    21,    20,     0,     0,     0,     0,     2,     3,     5,
+       6,     8,     7,    24,    25,     9,    26,    24,     0,     0,
+       0,     0,     1,     4,     0,    30,    12,     0,     0,     0,
+       0,     0,     0,     0,    29,    11,     0,     0,     0,    26,
+      22,    31,     0,     0,    15,    27,    28,    33,    35,    34,
+      36,    37,    10,     0,     0,    23,     0,    13,    16,     0,
+       0,    26,    19,    32,     0,     0,    12,    18,    14,    17
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-      -1,     4,     5,     6,    40,     7,     8,    33,    12,    10,
-      11,    24
+      -1,     6,     7,     8,    20,     9,    10,    59,    11,    12,
+      17,    14,    15,    42,    16
 };
 
 /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
    STATE-NUM.  */
-#define YYPACT_NINF -19
+#define YYPACT_NINF -49
 static const yytype_int8 yypact[] =
 {
-       3,   -19,   -19,     3,    10,     3,   -19,   -19,   -19,    34,
-     -19,    15,    -4,     7,   -19,   -19,     3,     3,    38,     3,
-       3,   -19,    15,    15,    24,    28,    31,   -19,   -19,   -19,
-       3,   -19,   -19,    35,    31,    15,    39,    31,    41,    19,
-     -19,   -19,   -19,    21,   -19
+      64,   -49,   -49,     5,   -12,    -3,    14,    64,   -49,   -49,
+     -49,   -49,   -49,     8,   -49,    90,   -49,     4,    80,    38,
+       3,     5,   -49,   -49,     5,     5,    30,     5,     5,     5,
+       5,     5,     5,     5,   -49,   -49,    46,    26,    90,    32,
+      90,    90,    21,    37,    43,    61,    61,    90,    90,    90,
+      90,    90,   -49,     5,   -12,   -49,     5,   -49,   -49,    31,
+      43,    39,   -49,    90,   -12,    43,    50,   -49,   -49,   -49
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -19,   -19,    11,    -3,   -19,   -18,   -19,   -19,     0,    26,
-      -2,   -19
+     -49,   -49,    42,    -2,   -48,   -40,   -49,   -49,   -49,   -49,
+       0,    20,    -1,   -49,   -20
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
@@ -832,33 +557,45 @@ static const yytype_int8 yypgoto[] =
 #define YYTABLE_NINF -1
 static const yytype_uint8 yytable[] =
 {
-       9,    13,    15,    16,    17,     9,     1,     2,    32,    18,
-      14,     3,    19,    20,    22,    23,    21,    27,    28,    41,
-      19,    20,     1,     2,     1,     2,    34,     3,    35,     3,
-      42,     1,    44,    29,    38,     2,    30,    34,     2,     9,
-      15,    16,    17,     9,    36,    25,    26,    37,    25,    39,
-      43,    31
+      13,    39,    18,    19,    58,    23,    62,    13,     1,     2,
+      21,    24,     2,    26,    22,    24,    68,    25,     3,    13,
+      38,    25,    37,    40,    41,    69,    45,    46,    47,    48,
+      49,    50,    51,    61,    23,    55,    13,    43,    56,    53,
+       1,     1,     2,    44,    60,    64,    54,     2,    65,     1,
+       2,     3,    38,    67,    35,    63,     4,    43,     5,     3,
+      66,    36,    52,    57,     4,    60,     5,     1,     2,    29,
+      30,    31,    32,    33,     0,     0,     0,     3,     0,     0,
+       0,     0,     4,     0,     5,    27,    28,     0,    29,    30,
+      31,    32,    33,     0,    34,    27,    28,     0,    29,    30,
+      31,    32,    33
 };
 
-static const yytype_uint8 yycheck[] =
+static const yytype_int8 yycheck[] =
 {
-       0,     3,     5,     7,     8,     5,     3,     4,    26,     9,
-       0,     8,     5,     6,    16,    17,     9,    19,    20,    37,
-       5,     6,     3,     4,     3,     4,    26,     8,    30,     8,
-      11,     3,    11,     9,    34,     4,    12,    37,     4,    39,
-      43,     7,     8,    43,     9,     7,     8,    12,     7,    10,
-      39,    25
+       0,    21,     3,    15,    44,     7,    54,     7,     3,     4,
+      13,     7,     4,    13,     0,     7,    64,    13,    13,    19,
+      21,    13,    19,    24,    25,    65,    27,    28,    29,    30,
+      31,    32,    33,    53,    36,    14,    36,     7,    17,    13,
+       3,     3,     4,    13,    44,    14,    14,     4,    17,     3,
+       4,    13,    53,    14,    16,    56,    18,     7,    20,    13,
+      60,    19,    16,    43,    18,    65,    20,     3,     4,     8,
+       9,    10,    11,    12,    -1,    -1,    -1,    13,    -1,    -1,
+      -1,    -1,    18,    -1,    20,     5,     6,    -1,     8,     9,
+      10,    11,    12,    -1,    14,     5,     6,    -1,     8,     9,
+      10,    11,    12
 };
 
 /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
    symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,     3,     4,     8,    14,    15,    16,    18,    19,    21,
-      22,    23,    21,    23,     0,    16,     7,     8,    21,     5,
-       6,     9,    23,    23,    24,     7,     8,    23,    23,     9,
-      12,    22,    18,    20,    21,    23,     9,    12,    21,    10,
-      17,    18,    11,    15,    11
+       0,     3,     4,    13,    18,    20,    22,    23,    24,    26,
+      27,    29,    30,    31,    32,    33,    35,    31,    33,    15,
+      25,    13,     0,    24,     7,    13,    31,     5,     6,     8,
+       9,    10,    11,    12,    14,    16,    23,    19,    33,    35,
+      33,    33,    34,     7,    13,    33,    33,    33,    33,    33,
+      33,    33,    16,    13,    14,    14,    17,    32,    26,    28,
+      31,    35,    25,    33,    14,    17,    31,    14,    25,    26
 };
 
 #define yyerrok		(yyerrstatus = 0)
@@ -1672,171 +1409,219 @@ yyreduce:
         case 2:
 
 /* Line 1455 of yacc.c  */
-#line 338 "src/lc3c.y"
+#line 42 "src/lc3c.y"
     { programBlock = (yyvsp[(1) - (1)].block); ;}
     break;
 
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 341 "src/lc3c.y"
+#line 45 "src/lc3c.y"
     { (yyval.block) = new Block(); (yyval.block)->statements.push_back((yyvsp[(1) - (1)].stmt)); ;}
     break;
 
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 342 "src/lc3c.y"
+#line 46 "src/lc3c.y"
     { (yyvsp[(1) - (2)].block)->statements.push_back((yyvsp[(2) - (2)].stmt)); ;}
-    break;
-
-  case 7:
-
-/* Line 1455 of yacc.c  */
-#line 346 "src/lc3c.y"
-    { (yyval.stmt) = new ExpressionStatement(*(yyvsp[(1) - (1)].expr)); ;}
-    break;
-
-  case 8:
-
-/* Line 1455 of yacc.c  */
-#line 349 "src/lc3c.y"
-    { (yyval.block) = (yyvsp[(2) - (3)].block); ;}
     break;
 
   case 9:
 
 /* Line 1455 of yacc.c  */
-#line 350 "src/lc3c.y"
-    { (yyval.block) = new Block(); ;}
+#line 50 "src/lc3c.y"
+    { (yyval.stmt) = new ExpressionStatement(*(yyvsp[(1) - (1)].expr)); ;}
     break;
 
   case 10:
 
 /* Line 1455 of yacc.c  */
-#line 353 "src/lc3c.y"
-    { (yyval.stmt) = new VariableDeclaration(*(yyvsp[(1) - (2)].ident), *(yyvsp[(2) - (2)].ident));;}
+#line 53 "src/lc3c.y"
+    { (yyval.block) = (yyvsp[(2) - (3)].block); ;}
     break;
 
   case 11:
 
 /* Line 1455 of yacc.c  */
-#line 354 "src/lc3c.y"
-    { (yyval.stmt) = new VariableDeclaration(*(yyvsp[(1) - (4)].ident), *(yyvsp[(2) - (4)].ident), (yyvsp[(4) - (4)].numeric));;}
+#line 54 "src/lc3c.y"
+    { (yyval.block) = new Block(); ;}
     break;
 
   case 12:
 
 /* Line 1455 of yacc.c  */
-#line 358 "src/lc3c.y"
-    { (yyval.stmt) = new FunctionDeclaration(*(yyvsp[(1) - (6)].ident), *(yyvsp[(2) - (6)].ident), *(yyvsp[(4) - (6)].varvec), *(yyvsp[(6) - (6)].block));
-           funcDeclList.push_back(make_pair((yyvsp[(2) - (6)].ident)->name, std::to_string((long long)address)));
-           address+=200;
-           delete (yyvsp[(4) - (6)].varvec);;}
+#line 57 "src/lc3c.y"
+    { (yyval.stmt) = new VariableDeclaration(*(yyvsp[(1) - (2)].ident), *(yyvsp[(2) - (2)].ident));;}
     break;
 
   case 13:
 
 /* Line 1455 of yacc.c  */
-#line 364 "src/lc3c.y"
-    { (yyval.varvec) = new VariableList(); ;}
+#line 58 "src/lc3c.y"
+    { (yyval.stmt) = new VariableDeclaration(*(yyvsp[(1) - (4)].ident), *(yyvsp[(2) - (4)].ident), (yyvsp[(4) - (4)].numeric));;}
     break;
 
   case 14:
 
 /* Line 1455 of yacc.c  */
-#line 365 "src/lc3c.y"
-    { (yyval.varvec) = new VariableList(); (yyval.varvec)->push_back((yyvsp[(1) - (1)].var_decl)); ;}
+#line 62 "src/lc3c.y"
+    { (yyval.stmt) = new FunctionDeclaration(*(yyvsp[(1) - (6)].ident), *(yyvsp[(2) - (6)].ident), *(yyvsp[(4) - (6)].varvec), *(yyvsp[(6) - (6)].block));
+           hashPush((yyvsp[(2) - (6)].ident)->name,functionDeclTable);
+           delete (yyvsp[(4) - (6)].varvec);;}
     break;
 
   case 15:
 
 /* Line 1455 of yacc.c  */
-#line 366 "src/lc3c.y"
-    { (yyvsp[(1) - (3)].varvec)->push_back((yyvsp[(3) - (3)].var_decl)); ;}
+#line 67 "src/lc3c.y"
+    { (yyval.varvec) = new VariableList(); ;}
     break;
 
   case 16:
 
 /* Line 1455 of yacc.c  */
-#line 369 "src/lc3c.y"
-    { (yyval.ident) = new Identifier(*(yyvsp[(1) - (1)].strVal)); delete (yyvsp[(1) - (1)].strVal); ;}
+#line 68 "src/lc3c.y"
+    { (yyval.varvec) = new VariableList(); (yyval.varvec)->push_back((yyvsp[(1) - (1)].var_decl)); ;}
     break;
 
   case 17:
 
 /* Line 1455 of yacc.c  */
-#line 372 "src/lc3c.y"
-    { (yyval.numeric) = new Integer(atoi((yyvsp[(1) - (1)].strVal)->c_str())); delete (yyvsp[(1) - (1)].strVal); ;}
+#line 69 "src/lc3c.y"
+    { (yyvsp[(1) - (3)].varvec)->push_back((yyvsp[(3) - (3)].var_decl)); ;}
     break;
 
   case 18:
 
 /* Line 1455 of yacc.c  */
-#line 375 "src/lc3c.y"
-    { (yyval.expr) = new Assignment(*(yyvsp[(1) - (3)].ident), *(yyvsp[(3) - (3)].expr));;}
+#line 73 "src/lc3c.y"
+    { (yyval.stmt) = new DoWhileLoop(*(yyvsp[(2) - (6)].block), *(yyvsp[(5) - (6)].expr)); ;}
     break;
 
   case 19:
 
 /* Line 1455 of yacc.c  */
-#line 376 "src/lc3c.y"
-    { (yyval.expr) = new MethodCall(*(yyvsp[(1) - (4)].ident), *(yyvsp[(3) - (4)].exprvec)); delete (yyvsp[(3) - (4)].exprvec); ;}
+#line 76 "src/lc3c.y"
+    { (yyval.stmt) = new IfStatement(*(yyvsp[(3) - (5)].expr), *(yyvsp[(5) - (5)].block)); ;}
     break;
 
   case 20:
 
 /* Line 1455 of yacc.c  */
-#line 377 "src/lc3c.y"
-    { (yyval.ident) = (yyvsp[(1) - (1)].ident); ;}
+#line 79 "src/lc3c.y"
+    { (yyval.ident) = new Identifier(*(yyvsp[(1) - (1)].strVal)); delete (yyvsp[(1) - (1)].strVal); ;}
+    break;
+
+  case 21:
+
+/* Line 1455 of yacc.c  */
+#line 82 "src/lc3c.y"
+    { (yyval.numeric) = new Integer(atoi((yyvsp[(1) - (1)].strVal)->c_str())); delete (yyvsp[(1) - (1)].strVal); ;}
     break;
 
   case 22:
 
 /* Line 1455 of yacc.c  */
-#line 379 "src/lc3c.y"
-    { (yyval.expr) = new BinaryOperator(*(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+#line 85 "src/lc3c.y"
+    { (yyval.expr) = new Assignment(*(yyvsp[(1) - (3)].ident), *(yyvsp[(3) - (3)].expr));;}
     break;
 
   case 23:
 
 /* Line 1455 of yacc.c  */
-#line 380 "src/lc3c.y"
-    { (yyval.expr) = new BinaryOperator(*(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+#line 86 "src/lc3c.y"
+    { (yyval.expr) = new MethodCall(*(yyvsp[(1) - (4)].ident), *(yyvsp[(3) - (4)].exprvec)); delete (yyvsp[(3) - (4)].exprvec); ;}
     break;
 
   case 24:
 
 /* Line 1455 of yacc.c  */
-#line 381 "src/lc3c.y"
-    { (yyval.expr) = (yyvsp[(2) - (3)].expr); ;}
-    break;
-
-  case 25:
-
-/* Line 1455 of yacc.c  */
-#line 384 "src/lc3c.y"
-    { (yyval.exprvec) = new ExpressionList(); ;}
-    break;
-
-  case 26:
-
-/* Line 1455 of yacc.c  */
-#line 385 "src/lc3c.y"
-    { (yyval.exprvec) = new ExpressionList(); (yyval.exprvec)->push_back((yyvsp[(1) - (1)].expr)); ;}
+#line 87 "src/lc3c.y"
+    { (yyval.ident) = (yyvsp[(1) - (1)].ident); ;}
     break;
 
   case 27:
 
 /* Line 1455 of yacc.c  */
-#line 386 "src/lc3c.y"
+#line 90 "src/lc3c.y"
+    { (yyval.expr) = new BinaryOperator(*(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 28:
+
+/* Line 1455 of yacc.c  */
+#line 91 "src/lc3c.y"
+    { (yyval.expr) = new BinaryOperator(*(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 29:
+
+/* Line 1455 of yacc.c  */
+#line 92 "src/lc3c.y"
+    { (yyval.expr) = (yyvsp[(2) - (3)].expr); ;}
+    break;
+
+  case 30:
+
+/* Line 1455 of yacc.c  */
+#line 95 "src/lc3c.y"
+    { (yyval.exprvec) = new ExpressionList(); ;}
+    break;
+
+  case 31:
+
+/* Line 1455 of yacc.c  */
+#line 96 "src/lc3c.y"
+    { (yyval.exprvec) = new ExpressionList(); (yyval.exprvec)->push_back((yyvsp[(1) - (1)].expr)); ;}
+    break;
+
+  case 32:
+
+/* Line 1455 of yacc.c  */
+#line 97 "src/lc3c.y"
     { (yyvsp[(1) - (3)].exprvec)->push_back((yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 33:
+
+/* Line 1455 of yacc.c  */
+#line 100 "src/lc3c.y"
+    { (yyval.expr) = new Comparison( *(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 34:
+
+/* Line 1455 of yacc.c  */
+#line 101 "src/lc3c.y"
+    { (yyval.expr) = new Comparison( *(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 35:
+
+/* Line 1455 of yacc.c  */
+#line 102 "src/lc3c.y"
+    { (yyval.expr) = new Comparison( *(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 36:
+
+/* Line 1455 of yacc.c  */
+#line 103 "src/lc3c.y"
+    { (yyval.expr) = new Comparison( *(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
+    break;
+
+  case 37:
+
+/* Line 1455 of yacc.c  */
+#line 104 "src/lc3c.y"
+    { (yyval.expr) = new Comparison( *(yyvsp[(1) - (3)].expr), (yyvsp[(2) - (3)].token), *(yyvsp[(3) - (3)].expr)); ;}
     break;
 
 
 
 /* Line 1455 of yacc.c  */
-#line 1840 "src/parser.cpp"
+#line 1625 "src/parser.cpp"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -2048,7 +1833,7 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 389 "src/lc3c.y"
+#line 107 "src/lc3c.y"
 
 
 int main(int argc, char **argv) {
@@ -2062,8 +1847,15 @@ int main(int argc, char **argv) {
                         perror("There was an error with dup2()");
         }
 
+
         yyparse();
         Expression_interp(programBlock);
+        std::cout << ";-------------------------------\n"
+                  << ";Remote Data\n"
+                  << ";-------------------------------\n"
+                  << ".ORIG x6000\n";
+
+        std::cout << "FuncCallBackup" << "\t.BLKW\t#1\n";
 
         return 0;
 }

@@ -44,11 +44,19 @@
      ADD = 260,
      SUB = 261,
      EQL = 262,
-     OP = 263,
-     CP = 264,
-     OB = 265,
-     CB = 266,
-     COMMA = 267
+     ISGT = 263,
+     ISLT = 264,
+     ISGTE = 265,
+     ISLTE = 266,
+     ISEQ = 267,
+     OP = 268,
+     CP = 269,
+     OB = 270,
+     CB = 271,
+     COMMA = 272,
+     DO = 273,
+     WHILE = 274,
+     IF = 275
    };
 #endif
 
@@ -59,7 +67,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 306 "src/lc3c.y"
+#line 9 "src/lc3c.y"
 
         Node *node;
         Block *block;
@@ -76,7 +84,7 @@ typedef union YYSTYPE
 
 
 /* Line 1676 of yacc.c  */
-#line 80 "src/parser.hpp"
+#line 88 "src/parser.hpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

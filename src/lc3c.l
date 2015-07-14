@@ -13,6 +13,14 @@ extern "C" int yywrap() { }
 "+"                     { yylval.token = 0; return ADD; }
 "-"                     { yylval.token = 1; return SUB; }
 "="                     { return EQL; }
+">"                     { yylval.token = 0; return ISGT; }
+"<"                     { yylval.token = 1; return ISLT; }
+">="                    { yylval.token = 2; return ISGTE; }
+"<="                    { yylval.token = 3; return ISLTE; }
+"=="                    { yylval.token = 4; return ISEQ; }
+"if"                    { return IF; }
+"do"                    { return DO; }
+"while"                 { return WHILE; }
 [0-9]+                  { SAVE_TOKEN; return INT; }
 [a-zA-Z_][a-zA-Z0-9_]*  { SAVE_TOKEN; return ID; }
 ","                     { return COMMA; }

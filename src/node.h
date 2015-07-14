@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 
-class CNodeGenContext;
 class Statement;
 class Expression;
 class VariableDeclaration;
@@ -66,6 +65,16 @@ public:
 	std::string type() {return "BinaryOperator";};
 };
 
+class Comparison : public Expression {
+public:
+        int op;
+	Expression& lhs;
+	Expression& rhs;
+        Comparison(Expression& lhs, int op, Expression& rhs) :
+                lhs(lhs), op(op), rhs(rhs) { }
+        std::string type() {return "Comparison";};
+};
+
 class Assignment : public Expression {
 public:
 	Identifier& lhs;
@@ -120,4 +129,22 @@ public:
 			const VariableList& arguments, Block& block) :
 		func_type(func_type), id(id), arguments(arguments), block(block) { }
 	std::string type() {return "FunctionDeclaration";};
+};
+
+class DoWhileLoop : public Statement {
+public:
+        Block& action;
+        Expression& condition;
+        DoWhileLoop(Block& action, Expression& condition) :
+                action(action), condition(condition) { }
+        std::string type() {return "DoWhileLoop";};
+};
+
+class IfStatement : public Statement {
+public:
+        Expression& condition;
+        Block& action;
+        IfStatement(Expression& condition, Block& action) :
+                condition(condition), action(action) { }
+        std::string type() {return "IfStatement";};
 };
