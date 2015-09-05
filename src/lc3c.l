@@ -19,8 +19,7 @@ extern "C" int yywrap() { }
 "<="                    { yylval.token = 3; return ISLTE; }
 "=="                    { yylval.token = 4; return ISEQ; }
 "if"                    { return IF; }
-"do"                    { return DO; }
-"while"                 { return WHILE; }
+"dowhile"               { return DOWHILE; }
 [0-9]+                  { SAVE_TOKEN; return INT; }
 [a-zA-Z_][a-zA-Z0-9_]*  { SAVE_TOKEN; return ID; }
 ","                     { return COMMA; }

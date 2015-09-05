@@ -1,6 +1,14 @@
 #include <iostream>
 #include <vector>
 
+//node types
+const unsigned NODE = 0,                EXPRESSION = 1,                 STATEMENT = 2,
+               INTEGER = 3,             DOUBLE = 4,                     IDENTIFIER = 5,
+               METHODCALL = 6,          BINARYOPERATOR = 7,             COMPARISON = 8,
+               ASSIGNMENT = 9,          BLOCK = 10,                     EXPRESSIONSTATEMENT = 11,
+               RETURNSTATEMENT = 12,    VARIABLEDECLARATION = 13,       FUNCTIONDECLARATION = 14,
+               DOWHILELOOP = 15,        IFSTATEMENT = 16;
+
 class Statement;
 class Expression;
 class VariableDeclaration;
@@ -11,38 +19,38 @@ typedef std::vector<VariableDeclaration*> VariableList;
 
 class Node {
 public:
-	virtual std::string type() {return "Node";};
+	virtual int type() {return NODE;};
 };
 
 class Expression : public Node {
 public:
-        virtual std::string type() {return "Expression";};
+        virtual int type() {return EXPRESSION;};
 };
 
 class Statement : public Node {
 public:
-        virtual std::string type() {return "Statement";};
+        virtual int type() {return STATEMENT;};
 };
 
 class Integer : public Expression {
 public:
 	long long value;
 	Integer(long long value) : value(value) { }
-	std::string type() {return "Integer";};
+	int type() {return INTEGER;};
 };
 
 class Double : public Expression {
 public:
 	double value;
 	Double(double value) : value(value) { }
-	std::string type() {return "Double";};
+	int type() {return DOUBLE;};
 };
 
 class Identifier : public Expression {
 public:
 	std::string name;
 	Identifier(const std::string& name) : name(name) { }
-	std::string type() {return "Identifier";};
+	int type() {return IDENTIFIER;};
 };
 
 class MethodCall : public Expression {
@@ -52,7 +60,7 @@ public:
 	MethodCall(const Identifier& id, ExpressionList& arguments) :
 		id(id), arguments(arguments) { }
 	MethodCall(const Identifier& id) : id(id) { }
-	std::string type() {return "MethodCall";};
+	int type() {return METHODCALL;};
 };
 
 class BinaryOperator : public Expression {
@@ -62,7 +70,7 @@ public:
 	Expression& rhs;
 	BinaryOperator(Expression& lhs, int op, Expression& rhs) :
 		lhs(lhs), rhs(rhs), op(op) { }
-	std::string type() {return "BinaryOperator";};
+	int type() {return BINARYOPERATOR;};
 };
 
 class Comparison : public Expression {
@@ -72,7 +80,7 @@ public:
 	Expression& rhs;
         Comparison(Expression& lhs, int op, Expression& rhs) :
                 lhs(lhs), op(op), rhs(rhs) { }
-        std::string type() {return "Comparison";};
+        int type() {return COMPARISON;};
 };
 
 class Assignment : public Expression {
@@ -81,14 +89,14 @@ public:
 	Expression& rhs;
 	Assignment(Identifier& lhs, Expression& rhs) : 
 		lhs(lhs), rhs(rhs) { }
-	std::string type() {return "Assignment";};
+	int type() {return ASSIGNMENT;};
 };
 
 class Block : public Expression {
 public:
 	StatementList statements;
 	Block() { }
-	std::string type() {return "Block";};
+	int type() {return BLOCK;};
 };
 
 class ExpressionStatement : public Statement {
@@ -96,7 +104,7 @@ public:
 	Expression& expression;
 	ExpressionStatement(Expression& expression) : 
 		expression(expression) { }
-	std::string type() {return "ExpressionStatement";};
+	int type() {return EXPRESSIONSTATEMENT;};
 };
 
 class ReturnStatement : public Statement {
@@ -104,7 +112,7 @@ public:
 	Expression& expression;
 	ReturnStatement(Expression& expression) : 
 		expression(expression) { }
-	std::string type() {return "ReturnStatement";};
+	int type() {return RETURNSTATEMENT;};
 };
 
 class VariableDeclaration : public Statement {
@@ -116,7 +124,7 @@ public:
 		var_type(var_type), id(id) { }
 	VariableDeclaration(const Identifier& var_type, Identifier& id, Expression *assignmentExpr) :
 		var_type(var_type), id(id), assignmentExpr(assignmentExpr) { }
-	std::string type() {return "VariableDeclaration";};
+	int type() {return VARIABLEDECLARATION;};
 };
 
 class FunctionDeclaration : public Statement {
@@ -128,16 +136,16 @@ public:
 	FunctionDeclaration(const Identifier& func_type, const Identifier& id, 
 			const VariableList& arguments, Block& block) :
 		func_type(func_type), id(id), arguments(arguments), block(block) { }
-	std::string type() {return "FunctionDeclaration";};
+	int type() {return FUNCTIONDECLARATION;};
 };
 
 class DoWhileLoop : public Statement {
 public:
         Block& action;
         Expression& condition;
-        DoWhileLoop(Block& action, Expression& condition) :
+        DoWhileLoop( Expression& condition, Block& action) :
                 action(action), condition(condition) { }
-        std::string type() {return "DoWhileLoop";};
+        int type() {return DOWHILELOOP;};
 };
 
 class IfStatement : public Statement {
@@ -146,5 +154,5 @@ public:
         Block& action;
         IfStatement(Expression& condition, Block& action) :
                 condition(condition), action(action) { }
-        std::string type() {return "IfStatement";};
+        int type() {return IFSTATEMENT;};
 };

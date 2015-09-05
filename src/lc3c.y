@@ -23,7 +23,7 @@ void yyerror(const char *s);
 %token<strVal> INT ID
 %token<token> ADD SUB EQL ISGT ISLT ISGTE ISLTE ISEQ
 %token<token> OP CP OB CB COMMA
-%token<token> DO WHILE IF
+%token<token> DOWHILE IF
 
 %type<ident> ident
 %type<expr> expr condition
@@ -69,8 +69,8 @@ func_decl_args : /*nothing*/ { $$ = new VariableList(); }
                | func_decl_args COMMA var_decl { $1->push_back($<var_decl>3); }
                ;
 
-do_while_statement : DO block WHILE OP condition CP
-                        { $$ = new DoWhileLoop(*$2, *$5); }
+do_while_statement : DOWHILE OP condition CP block
+                        { $$ = new DoWhileLoop(*$3, *$5); }
                    ;
 
 if_statement : IF OP condition CP block { $$ = new IfStatement(*$3, *$5); }

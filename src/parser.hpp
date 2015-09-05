@@ -54,9 +54,8 @@
      OB = 270,
      CB = 271,
      COMMA = 272,
-     DO = 273,
-     WHILE = 274,
-     IF = 275
+     DOWHILE = 273,
+     IF = 274
    };
 #endif
 
@@ -84,7 +83,7 @@ typedef union YYSTYPE
 
 
 /* Line 1676 of yacc.c  */
-#line 88 "src/parser.hpp"
+#line 87 "src/parser.hpp"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

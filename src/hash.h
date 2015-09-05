@@ -4,22 +4,23 @@
 #include <algorithm>
 #include <stack>
 
-//--------------------
+//----------classes----------
 struct Status {
         unsigned reg;
         unsigned address;
         unsigned ifStatement;
+        unsigned doWhileLoop;
         std::string function;
 
-        Status (unsigned reg, unsigned address, unsigned ifStatement, std::string function) :
-                reg(reg), address(address), ifStatement(ifStatement), function(function) { }
+        Status (unsigned reg, unsigned address, unsigned ifStatement, unsigned doWhileLoop, std::string function) :
+                reg(reg), address(address), ifStatement(ifStatement), doWhileLoop(doWhileLoop), function(function) { }
 };
 
 class Object {
         public:
                 virtual std::string type() {return "Object";}
                 virtual std::string get_name() {return NULL;}
-                virtual int get_value() {return 9999;}
+                virtual int get_value(int n) {return 9999;}
                 virtual void set_value(int n) { }
                 virtual unsigned get_address() {return 0;}
                 virtual unsigned get_reg() {return 9999;}
@@ -30,17 +31,17 @@ class Object {
 class AssignedVariable : public Object {
         private:
                 std::string name;
-                int value;
+                std::vector<int> value;
                 unsigned reg;
                 unsigned timesInvoked;
         public:
-                AssignedVariable(std::string name, unsigned reg, int value, unsigned timesInvoked) :
+                AssignedVariable(std::string name, unsigned reg, std::vector<int> value, unsigned timesInvoked) :
                         name(name), reg(reg), value(value), timesInvoked(timesInvoked) { }
 
                 std::string type() {return "AssignedVariable";}
                 std::string get_name() {return name;}
-                int get_value() {return value;}
-                void set_value(int n) {value = n;}
+                int get_value(int n) {return value.at(n);}
+                void set_value(int n) {value.push_back(n);}
                 unsigned get_reg() {return reg;}
                 unsigned get_times_invoked() {return timesInvoked;}
                 void increment_invocation() {timesInvoked++; }
@@ -61,11 +62,12 @@ class DeclaredFunction : public Object {
                 unsigned get_times_invoked() {return timesInvoked;}
                 void increment_invocation() {timesInvoked++; }
 };
+//-----------------------------
 
 const unsigned NHASH = 9997;  //size of hash table
 std::vector<int> variablePositions;  //Positions filled in hash tables
 std::vector<int> functionPositions;
-Status currentStatus (0,3000,0,"main"); //Starting status
+Status currentStatus (0,3000,0,0,"main"); //Starting status
 
 //the hash tables
 std::stack<std::vector<Object*>> variableTableBackup;
@@ -105,12 +107,13 @@ int hashLookup(const std::string& s, std::vector<Object*>& table){ //search for 
         }
 }
 
-int hashPush(const std::string& s, std::vector<Object*>& table, int value){ //add value to hash table
+int hashPush(const std::string& s, std::vector<Object*>& table, int value){ //add value to variable hash table
         unsigned hashNum = hash(s)%NHASH;
+        std::vector<int> values = {value};
 
         if (table.at(hashNum) == NULL){
                 variablePositions.push_back(hashNum);
-                table.at(hashNum) = new AssignedVariable(s,currentStatus.reg,value,0);
+                table.at(hashNum) = new AssignedVariable(s,currentStatus.reg,values,0);
                 currentStatus.reg++;
                 return 0;
         }
@@ -122,7 +125,7 @@ int hashPush(const std::string& s, std::vector<Object*>& table, int value){ //ad
                         if (i == NHASH) i=0;
                         if (table.at(i) == NULL){
                                 variablePositions.push_back(i);
-                                table.at(i) = new AssignedVariable(s,currentStatus.reg,value,0);
+                                table.at(i) = new AssignedVariable(s,currentStatus.reg,values,0);
                                 currentStatus.reg++;
                                 return 0;
                         }
@@ -132,7 +135,7 @@ int hashPush(const std::string& s, std::vector<Object*>& table, int value){ //ad
         }
 }
 
-int hashPush(const std::string& s, std::vector<Object*>& table){
+int hashPush(const std::string& s, std::vector<Object*>& table){ //add value to function hash table
         unsigned hashNum = hash(s)%NHASH;
 
         if (table.at(hashNum) == NULL){
