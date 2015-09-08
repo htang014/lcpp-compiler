@@ -26,12 +26,16 @@ std::string Expression_interp(Node* node){
         if (node->type() == METHODCALL){
                 //std::cout << "MethodCall\n";
 
+                #define b hashLookup(currentStatus.function,functionDeclTable)
                 const Identifier& id = static_cast<MethodCall*>(node)->id;
                 std::string funcName = Expression_interp(const_cast<Identifier*>(&id));
 
                 ExpressionList arguments = static_cast<MethodCall*>(node)->arguments;
-                for (unsigned i = 0; i < arguments.size(); i++)
+                std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(b)->get_address() << std::endl;
+                for (unsigned i = 0; i < arguments.size(); i++){
                         Expression_interp(arguments.at(i));
+                        std::cout << "STR R" << i << ", R6, #" << i << std::endl;
+                }
 
                 int tablePos = hashLookup(funcName, functionDeclTable);
 
@@ -344,19 +348,19 @@ void Statement_interp(Node* node){
                 //std::cout << "FunctionDeclaration\n";
                 currentStatus.reg = 0;
 
-                const Identifier& func_type = static_cast<FunctionDeclaration*>(node)->func_type;
-                std::string type_name = Expression_interp(&(const_cast<Identifier&>(func_type)));
+                const Identifier& functionType = static_cast<FunctionDeclaration*>(node)->functionType;
+                std::string functionTypeString = Expression_interp(&(const_cast<Identifier&>(functionType)));
 
-                if (type_name != "int" && type_name != "void"){
+                if (functionTypeString != "int" && functionTypeString != "void"){
                         std::cerr << "Error: invalid type identifier\n";
                         exit(1);
                 }
 
                 const Identifier& id = static_cast<FunctionDeclaration*>(node)->id;
-                std::string func_name = Expression_interp(&(const_cast<Identifier&>(id)));
-                currentStatus.function = func_name;
+                std::string functionNameString = Expression_interp(&(const_cast<Identifier&>(id)));
+                currentStatus.function = functionNameString;
 
-                if (func_name == "int"){
+                if (functionNameString == "int"){
                         std::cerr << "Error: type \"int\" cannot be function name.\n";
                 }
 
@@ -365,10 +369,10 @@ void Statement_interp(Node* node){
                         Expression_interp(arguments.at(i));
 
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
-                std::cout << ";Routine: " << func_name << std::endl;
+                std::cout << ";Routine: " << functionNameString << std::endl;
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
 
-                int a = hashLookup(func_name, functionDeclTable);
+                int a = hashLookup(functionNameString, functionDeclTable);
                 std::cout << ".ORIG x" << functionDeclTable.at(a)->get_address() << std::endl;
                 std::cout << "LDI R6, FuncCallBackupAddr_" << functionDeclTable.at(a)->get_address() << std::endl;
 
@@ -382,6 +386,17 @@ void Statement_interp(Node* node){
                 std::cout << "ST R6, R6_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
                 std::cout << "ST R7, R7_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
                 std::cout << ";--------------------------------------------\n";
+
+
+                #define b hashLookup(currentStatus.function,functionDeclTable)
+                #define functionArguments static_cast<FunctionDeclaration*>(node)->arguments
+                if (!functionArguments.empty()){
+                        std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(b)->get_address() << std::endl;
+                        for (unsigned i = 0; i < functionArguments.size(); i++){
+                                std::cout << "LDR R" << i << ", R6, #" << i << std::endl;
+                                Expression_interp(functionArguments.at(i));
+                        }
+                }
 
                 Block& block = static_cast<FunctionDeclaration*>(node)->block;
                 Expression_interp(&block);
@@ -438,8 +453,8 @@ void Statement_interp(Node* node){
                         }
                 }
 
-                int b = hashLookup(currentStatus.function,functionDeclTable);
-                std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(b)->get_address() << "\t.FILL\tx6000" <<  std::endl;
+                std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(b)->get_address() << "\t.FILL\tx6000\n";
+                std::cout << "FuncCallParameters_" << functionDeclTable.at(b)->get_address() << "\t.FILL\tx6001\n";
                 std::cout << "General_R7_Backup_" << functionDeclTable.at(b)->get_address() << "\t.BLKW\t#1\n";
 
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";

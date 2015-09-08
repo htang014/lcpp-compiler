@@ -1708,6 +1708,7 @@ int main(int argc, char **argv) {
                   << ".ORIG x6000\n";
 
         std::cout << "FuncCallBackup" << "\t.BLKW\t#1\n";
+        std::cout << "FuncCallParameters" << "\t.BLKW\t#1\n";
 
         return 0;
 }

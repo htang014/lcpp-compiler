@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <stack>
 
-//----------classes----------
+//current status info
 struct Status {
         unsigned reg;
         unsigned address;
@@ -16,6 +16,9 @@ struct Status {
                 reg(reg), address(address), ifStatement(ifStatement), doWhileLoop(doWhileLoop), function(function) { }
 };
 
+std::vector<int> passedInValues;
+
+//classes
 class Object {
         public:
                 virtual std::string type() {return "Object";}

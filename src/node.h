@@ -129,13 +129,13 @@ public:
 
 class FunctionDeclaration : public Statement {
 public:
-	const Identifier& func_type;
+	const Identifier& functionType;
 	const Identifier& id;
 	VariableList arguments;
 	Block& block;
-	FunctionDeclaration(const Identifier& func_type, const Identifier& id, 
+	FunctionDeclaration(const Identifier& functionType, const Identifier& id, 
 			const VariableList& arguments, Block& block) :
-		func_type(func_type), id(id), arguments(arguments), block(block) { }
+		functionType(functionType), id(id), arguments(arguments), block(block) { }
 	int type() {return FUNCTIONDECLARATION;};
 };
 
