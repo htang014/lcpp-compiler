@@ -117,13 +117,13 @@ public:
 
 class VariableDeclaration : public Statement {
 public:
-	const Identifier& var_type;
+	const Identifier& variableType;
 	Identifier& id;
 	Expression *assignmentExpr;
-	VariableDeclaration(const Identifier& var_type, Identifier& id) :
-		var_type(var_type), id(id) { }
-	VariableDeclaration(const Identifier& var_type, Identifier& id, Expression *assignmentExpr) :
-		var_type(var_type), id(id), assignmentExpr(assignmentExpr) { }
+	VariableDeclaration(const Identifier& variableType, Identifier& id) :
+		variableType(variableType), id(id) { }
+	VariableDeclaration(const Identifier& variableType, Identifier& id, Expression *assignmentExpr) :
+		variableType(variableType), id(id), assignmentExpr(assignmentExpr) { }
 	int type() {return VARIABLEDECLARATION;};
 };
 

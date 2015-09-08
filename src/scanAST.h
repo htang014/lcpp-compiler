@@ -216,8 +216,8 @@ void Statement_interp(Node* node){
         if (node->type() == VARIABLEDECLARATION){
                 //std::cout << "VariableDeclaration\n";
 
-                const Identifier& var_type = static_cast<VariableDeclaration*>(node)->var_type;
-                std::string type_name = Expression_interp(&(const_cast<Identifier&>(var_type)));
+                const Identifier& variableType = static_cast<VariableDeclaration*>(node)->variableType;
+                std::string type_name = Expression_interp(&(const_cast<Identifier&>(variableType)));
 
                 if (type_name != "int"){
                         std::cerr << "Error: invalid type identifier\n";
