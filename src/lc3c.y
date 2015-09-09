@@ -60,7 +60,7 @@ var_decl : ident ident { $$ = new VariableDeclaration(*$1, *$2);}
 
 func_decl : ident ident OP func_decl_args CP block
            { $$ = new FunctionDeclaration(*$1, *$2, *$4, *$6);
-           hashPush($2->name,functionDeclTable);
+           hashPush($2->get_name(),functionDeclTable);
            delete $4;}
           ;
 
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
                   << ".ORIG x6000\n";
 
         std::cout << "FuncCallBackup" << "\t.BLKW\t#1\n";
-        std::cout << "FuncCallParameters" << "\t.BLKW\t#1\n";
+        std::cout << "FuncCallParameters" << "\t.BLKW\t#7\n";
 
         return 0;
 }

@@ -1325,7 +1325,7 @@ yyreduce:
   case 14:
 #line 62 "src/lc3c.y" /* yacc.c:1646  */
     { (yyval.stmt) = new FunctionDeclaration(*(yyvsp[-5].ident), *(yyvsp[-4].ident), *(yyvsp[-2].varvec), *(yyvsp[0].block));
-           hashPush((yyvsp[-4].ident)->name,functionDeclTable);
+           hashPush((yyvsp[-4].ident)->get_name(),functionDeclTable);
            delete (yyvsp[-2].varvec);}
 #line 1331 "src/parser.cpp" /* yacc.c:1646  */
     break;
@@ -1708,7 +1708,7 @@ int main(int argc, char **argv) {
                   << ".ORIG x6000\n";
 
         std::cout << "FuncCallBackup" << "\t.BLKW\t#1\n";
-        std::cout << "FuncCallParameters" << "\t.BLKW\t#1\n";
+        std::cout << "FuncCallParameters" << "\t.BLKW\t#7\n";
 
         return 0;
 }

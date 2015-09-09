@@ -11,9 +11,10 @@ struct Status {
         unsigned ifStatement;
         unsigned doWhileLoop;
         std::string function;
+        bool variableIsArgument;
 
-        Status (unsigned reg, unsigned address, unsigned ifStatement, unsigned doWhileLoop, std::string function) :
-                reg(reg), address(address), ifStatement(ifStatement), doWhileLoop(doWhileLoop), function(function) { }
+        Status (unsigned reg, unsigned address, unsigned ifStatement, unsigned doWhileLoop, std::string function, bool variableIsArgument) :
+                reg(reg), address(address), ifStatement(ifStatement), doWhileLoop(doWhileLoop), function(function), variableIsArgument(variableIsArgument) { }
 };
 
 std::vector<int> passedInValues;
@@ -70,7 +71,7 @@ class DeclaredFunction : public Object {
 const unsigned NHASH = 9997;  //size of hash table
 std::vector<int> variablePositions;  //Positions filled in hash tables
 std::vector<int> functionPositions;
-Status currentStatus (0,3000,0,0,"main"); //Starting status
+Status currentStatus (0,3000,0,0,"main",0); //Starting status
 
 //the hash tables
 std::stack<std::vector<Object*>> variableTableBackup;

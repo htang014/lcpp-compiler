@@ -19,7 +19,8 @@ typedef std::vector<VariableDeclaration*> VariableList;
 
 class Node {
 public:
-	virtual int type() {return NODE;};
+        virtual std::string get_name() {return NULL;}
+	virtual int type() {return NODE;}
 };
 
 class Expression : public Node {
@@ -36,21 +37,24 @@ class Integer : public Expression {
 public:
 	long long value;
 	Integer(long long value) : value(value) { }
-	int type() {return INTEGER;};
+	int type() {return INTEGER;}
 };
 
 class Double : public Expression {
 public:
 	double value;
 	Double(double value) : value(value) { }
-	int type() {return DOUBLE;};
+	int type() {return DOUBLE;}
 };
 
 class Identifier : public Expression {
+private:
+        std::string name;
 public:
-	std::string name;
 	Identifier(const std::string& name) : name(name) { }
-	int type() {return IDENTIFIER;};
+
+	std::string get_name() {return name;}
+	int type() {return IDENTIFIER;}
 };
 
 class MethodCall : public Expression {
@@ -60,7 +64,7 @@ public:
 	MethodCall(const Identifier& id, ExpressionList& arguments) :
 		id(id), arguments(arguments) { }
 	MethodCall(const Identifier& id) : id(id) { }
-	int type() {return METHODCALL;};
+	int type() {return METHODCALL;}
 };
 
 class BinaryOperator : public Expression {

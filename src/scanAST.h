@@ -21,7 +21,7 @@ std::string Expression_interp(Node* node){
                 return std::to_string(static_cast<Integer*>(node)->value);
         }
         if (node->type() == IDENTIFIER){
-                return static_cast<Identifier*>(node)->name;
+                return node->get_name();
         }
         if (node->type() == METHODCALL){
                 const Identifier& id = static_cast<MethodCall*>(node)->id;
@@ -34,7 +34,7 @@ std::string Expression_interp(Node* node){
                         Expression_interp(arguments.at(i));
 
                         //The register # holding the value of the specified variable
-                        int variableRegister = variableAssignTable.at(variablePosInHash(static_cast<Identifier*>(arguments.at(i))->name))->get_reg();
+                        int variableRegister = variableAssignTable.at(variablePosInHash(arguments.at(i)->get_name()))->get_reg();
 
                         std::cout << "STR R" << variableRegister << ", R6, #" << i << std::endl;
                 }
@@ -54,8 +54,6 @@ std::string Expression_interp(Node* node){
                 return "MethodCall";
         }
         if (node->type() == BINARYOPERATOR){
-                //std::cout << "BinaryOperator: " << static_cast<BinaryOperator*>(node)->op << std::endl;
-
                 int op = static_cast<BinaryOperator*>(node)->op;
 
                 Expression& lhs = static_cast<BinaryOperator*>(node)->lhs;
@@ -112,8 +110,6 @@ std::string Expression_interp(Node* node){
         }
 
         if (node->type() == ASSIGNMENT){
-                //std::cout << "Assignment\n";
-
                 std::cout << "ST R7, General_R7_Backup_"
                           << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address() << "\n";
 
@@ -242,9 +238,15 @@ void Statement_interp(Node* node){
                 Expression *assignmentExpr = static_cast<VariableDeclaration*>(node)->assignmentExpr;
                 std::string assignment_value = Expression_interp(assignmentExpr);
 
-                std::cout << "LD R" << currentStatus.reg << ", " << var_name << '_'
-                                    << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address()
-                                    << std::endl;
+                if (!currentStatus.variableIsArgument){
+                        std::cout << "LD R" << currentStatus.reg << ", " << var_name << '_'
+                                            << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address()
+                                            << std::endl;
+                }
+                else {
+                        currentStatus.variableIsArgument = 0;
+                }
+
                 hashPush(var_name, variableAssignTable, atoi(assignment_value.c_str()));
                 if (currentStatus.reg > 7){
                         std::cerr << "Error: Too many variable declarations.\n";
@@ -362,10 +364,6 @@ void Statement_interp(Node* node){
                         std::cerr << "Error: type \"int\" cannot be function name.\n";
                 }
 
-                VariableList arguments = static_cast<FunctionDeclaration*>(node)->arguments;
-                for (unsigned i = 0; i < arguments.size(); i++)
-                        Expression_interp(arguments.at(i));
-
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
                 std::cout << ";Routine: " << functionNameString << std::endl;
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
@@ -386,13 +384,13 @@ void Statement_interp(Node* node){
                 std::cout << ";--------------------------------------------\n";
 
 
-                #define b hashLookup(currentStatus.function,functionDeclTable)
                 #define functionArguments static_cast<FunctionDeclaration*>(node)->arguments
                 if (!functionArguments.empty()){
-                        std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(b)->get_address() << std::endl;
+                        std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
                         for (unsigned i = 0; i < functionArguments.size(); i++){
                                 std::cout << "LDR R" << i << ", R6, #" << i << std::endl;
-                                Expression_interp(functionArguments.at(i));
+                                currentStatus.variableIsArgument = 1;
+                                Statement_interp(functionArguments.at(i));
                         }
                 }
 
@@ -451,9 +449,9 @@ void Statement_interp(Node* node){
                         }
                 }
 
-                std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(b)->get_address() << "\t.FILL\tx6000\n";
-                std::cout << "FuncCallParameters_" << functionDeclTable.at(b)->get_address() << "\t.FILL\tx6001\n";
-                std::cout << "General_R7_Backup_" << functionDeclTable.at(b)->get_address() << "\t.BLKW\t#1\n";
+                std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6000\n";
+                std::cout << "FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6001\n";
+                std::cout << "General_R7_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.BLKW\t#1\n";
 
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
                 std::cout << ";End of routine\n";
