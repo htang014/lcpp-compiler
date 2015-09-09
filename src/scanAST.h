@@ -8,49 +8,47 @@
 #include "node.h"
 #include "hash.h"
 
+//macros for hash tables
+#define currentFunctionPosInHash hashLookup(currentStatus.function,functionDeclTable)
+#define calledFunctionPosInHash hashLookup(calledFunctionName, functionDeclTable)
+#define variablePosInHash(x) hashLookup(x, variableAssignTable)
+
 void Statement_interp(Node* node);
 std::string Expression_interp(Node* node);
 
 std::string Expression_interp(Node* node){
-        //std::cout << "Expression\n";
-
         if (node->type() == INTEGER){
-                //std::cout << "Integer: " << static_cast<Integer*>(node)->value << std::endl;
-                long long value = static_cast<Integer*>(node)->value;
-                return std::to_string(value);
+                return std::to_string(static_cast<Integer*>(node)->value);
         }
         if (node->type() == IDENTIFIER){
-                //std::cout << "Identifier: " << static_cast<Identifier*>(node)->name << std::endl;
                 return static_cast<Identifier*>(node)->name;
         }
         if (node->type() == METHODCALL){
-                //std::cout << "MethodCall\n";
-
-                #define b hashLookup(currentStatus.function,functionDeclTable)
                 const Identifier& id = static_cast<MethodCall*>(node)->id;
-                std::string funcName = Expression_interp(const_cast<Identifier*>(&id));
+                std::string calledFunctionName = Expression_interp(const_cast<Identifier*>(&id));
 
-                ExpressionList arguments = static_cast<MethodCall*>(node)->arguments;
-                std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(b)->get_address() << std::endl;
+                std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+
+                ExpressionList& arguments = static_cast<MethodCall*>(node)->arguments;
                 for (unsigned i = 0; i < arguments.size(); i++){
                         Expression_interp(arguments.at(i));
-                        std::cout << "STR R" << i << ", R6, #" << i << std::endl;
+
+                        //The register # holding the value of the specified variable
+                        int variableRegister = variableAssignTable.at(variablePosInHash(static_cast<Identifier*>(arguments.at(i))->name))->get_reg();
+
+                        std::cout << "STR R" << variableRegister << ", R6, #" << i << std::endl;
                 }
 
-                int tablePos = hashLookup(funcName, functionDeclTable);
+                functionDeclTable.at(calledFunctionPosInHash)->increment_invocation();
 
-                functionDeclTable.at(tablePos)->increment_invocation();
-
-                if (-1 == tablePos){
+                if (-1 == calledFunctionPosInHash){
                         std::cerr << "Function does not exist\n";
                         exit(1);
                 }
  
-                int currentFuncPos = hashLookup(currentStatus.function, functionDeclTable);
-
                 //outputs
-                std::cout << "STI R6, FuncCallBackupAddr_" << functionDeclTable.at(currentFuncPos)->get_address() << std::endl;
-                std::cout << "LD R6, " << funcName << '_' << functionDeclTable.at(currentFuncPos)->get_address()  << std::endl;
+                std::cout << "STI R6, FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                std::cout << "LD R6, " << calledFunctionName << '_' << functionDeclTable.at(currentFunctionPosInHash)->get_address()  << std::endl;
                 std::cout << "JSRR R6\n";
 
                 return "MethodCall";
