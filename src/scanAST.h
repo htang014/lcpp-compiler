@@ -62,8 +62,8 @@ std::string Expression_interp(Node* node){
                 Expression& rhs = static_cast<BinaryOperator*>(node)->rhs;
                 int right_index = hashLookup(Expression_interp(&rhs), variableAssignTable);
 
-                long long left_reg = -1;
-                long long right_reg = -1;
+                int left_reg = -1;
+                int right_reg = -1;
 
                 if (left_index == -1){
                         std::cerr << "Variable does not exist\n";
@@ -77,11 +77,11 @@ std::string Expression_interp(Node* node){
                 if (op == 0){
                         std::string output;
                         if (rhs.type() == INTEGER && std::abs(atoi(Expression_interp(&rhs).c_str())) <= 15){
-                                long long value = static_cast<Integer&>(rhs).value;
+                                int value = static_cast<Integer&>(rhs).value;
                                 output = "R" + std::to_string(left_reg) + ", #" + std::to_string(value) + "\n";
                         }
                         else if (rhs.type() == INTEGER){
-                                long long value = static_cast<Integer&>(rhs).value;
+                                int value = static_cast<Integer&>(rhs).value;
                                 variableAssignTable.at(variablePositions.at(0))->increment_invocation();
                                 variableAssignTable.at(variablePositions.at(0))->set_value(atoi(Expression_interp(&rhs).c_str()));
 
@@ -156,7 +156,7 @@ std::string Expression_interp(Node* node){
                 }
                 else if (rhs.type() == INTEGER){
                         int left_index = hashLookup(lhs_value,variableAssignTable);
-                        long long left_reg = -1;
+                        int left_reg = -1;
                         if (left_index != -1)
                                 left_reg = variableAssignTable.at(left_index)->get_reg();
                         else {
@@ -164,7 +164,7 @@ std::string Expression_interp(Node* node){
                                 exit(1);
                         }
                         variableAssignTable.at(left_index)->increment_invocation();
-                        long long numRepititions = variableAssignTable.at(left_index)->get_times_invoked();
+                        int numRepititions = variableAssignTable.at(left_index)->get_times_invoked();
                         variableAssignTable.at(left_index)->set_value(atoi(rhs_value.c_str()));
 
                         std::string new_label = lhs_value + "_" + std::to_string(numRepititions);
