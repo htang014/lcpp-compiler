@@ -1,7 +1,14 @@
 # lcpp-compiler
-A compiler from a toy "lcpp" language to LC3 assembly code.
-Built using Flex and Bison.
-Based on [lsegal's toy compiler](https://github.com/lsegal/my_toy_compiler)
+A compiler from a toy "lcpp" language to LC3 assembly code.  Please note that this program is not complete.
 
+## Installation
+Ensure that you have the latest versions of git, GCC, flex, and bison.
 
-## [WIP]
+In bash, perform the following:
+```
+$ git clone http://github.com/htang014/lcpp-compiler.git
+$ cd lcpp-compiler
+$ git checkout lc3c
+$ make
+
+```
