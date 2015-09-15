@@ -8,13 +8,13 @@
 struct Status {
         unsigned reg;
         unsigned address;
+        std::vector<unsigned> comparisons;
         unsigned ifStatement;
         unsigned doWhileLoop;
         std::string function;
         bool variableIsArgument;
 
-        Status (unsigned reg, unsigned address, unsigned ifStatement, unsigned doWhileLoop, std::string function, bool variableIsArgument) :
-                reg(reg), address(address), ifStatement(ifStatement), doWhileLoop(doWhileLoop), function(function), variableIsArgument(variableIsArgument) { }
+        Status ( ) : reg(0), address(3000), comparisons(0), ifStatement(0), doWhileLoop(0), function("main"), variableIsArgument(0) { }
 };
 
 std::vector<int> passedInValues;
@@ -25,6 +25,7 @@ class Object {
                 virtual std::string type() {return "Object";}
                 virtual std::string get_name() {return NULL;}
                 virtual int get_value(int n) {return 9999;}
+                virtual int get_value( ) {return 9999;}
                 virtual void set_value(int n) { }
                 virtual unsigned get_address() {return 0;}
                 virtual unsigned get_reg() {return 9999;}
@@ -45,6 +46,7 @@ class AssignedVariable : public Object {
                 std::string type() {return "AssignedVariable";}
                 std::string get_name() {return name;}
                 int get_value(int n) {return value.at(n);}
+                int get_value( ) {return value.back();}
                 void set_value(int n) {value.push_back(n);}
                 unsigned get_reg() {return reg;}
                 unsigned get_times_invoked() {return timesInvoked;}
@@ -71,7 +73,7 @@ class DeclaredFunction : public Object {
 const unsigned NHASH = 9997;  //size of hash table
 std::vector<int> variablePositions;  //Positions filled in hash tables
 std::vector<int> functionPositions;
-Status currentStatus (0,3000,0,0,"main",0); //Starting status
+Status currentStatus; //Starting status
 
 //the hash tables
 std::stack<std::vector<Object*>> variableTableBackup;

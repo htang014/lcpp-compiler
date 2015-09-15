@@ -23,7 +23,7 @@ void yyerror(const char *s);
 %token<strVal> INT ID
 %token<token> ADD SUB EQL ISGT ISLT ISGTE ISLTE ISEQ
 %token<token> OP CP OB CB COMMA
-%token<token> DOWHILE IF
+%token<token> RETURN DOWHILE IF
 
 %type<ident> ident
 %type<expr> expr condition
@@ -31,7 +31,7 @@ void yyerror(const char *s);
 %type<varvec> func_decl_args
 %type<exprvec> call_args
 %type<block> program stmts block
-%type<stmt> stmt var_decl func_decl do_while_statement if_statement
+%type<stmt> stmt var_decl func_decl return_statement do_while_statement if_statement
 
 %left ADD SUB
 
@@ -46,7 +46,7 @@ stmts : stmt { $$ = new Block(); $$->statements.push_back($<stmt>1); }
       | stmts stmt { $1->statements.push_back($<stmt>2); }
       ;
 
-stmt : var_decl | func_decl | if_statement | do_while_statement
+stmt : var_decl | func_decl | if_statement | do_while_statement | return_statement
      | expr { $$ = new ExpressionStatement(*$1); }
      ;
 
@@ -68,6 +68,9 @@ func_decl_args : /*nothing*/ { $$ = new VariableList(); }
                | var_decl { $$ = new VariableList(); $$->push_back($<var_decl>1); }
                | func_decl_args COMMA var_decl { $1->push_back($<var_decl>3); }
                ;
+
+return_statement : RETURN expr { $$ = new ReturnStatement(*$2);}
+                 ;
 
 do_while_statement : DOWHILE OP condition CP block
                         { $$ = new DoWhileLoop(*$3, *$5); }
@@ -103,7 +106,6 @@ condition : expr ISGT expr { $$ = new Comparison( *$1, $2, *$3); }
           | expr ISLTE expr { $$ = new Comparison( *$1, $2, *$3); }
           | expr ISEQ expr { $$ = new Comparison( *$1, $2, *$3); }
           ;
-
 %%
 
 int main(int argc, char **argv) {
@@ -127,6 +129,7 @@ int main(int argc, char **argv) {
 
         std::cout << "FuncCallBackup" << "\t.BLKW\t#1\n";
         std::cout << "FuncCallParameters" << "\t.BLKW\t#7\n";
+        std::cout << "ComparisonStorage" << "\t.BLKW\t#30\n";
 
         return 0;
 }

@@ -51,6 +51,7 @@ std::string Expression_interp(Node* node){
                 std::cout << "LD R6, " << calledFunctionName << '_' << functionDeclTable.at(currentFunctionPosInHash)->get_address()  << std::endl;
                 std::cout << "JSRR R6\n";
 
+
                 return "MethodCall";
         }
         if (node->type() == BINARYOPERATOR){
@@ -184,6 +185,9 @@ std::string Expression_interp(Node* node){
                 Expression& rhs = static_cast<Comparison*>(node)->rhs;
                 std::string rhs_value = Expression_interp(&rhs);
 
+                std::cout << "LD R7, " << "Compare_" << currentStatus.comparisons.size() << std::endl;
+                currentStatus.comparisons.push_back(atoi(rhs_value.c_str()));
+
                 return (lhs_value + "|" + rhs_value);
 
         }
@@ -261,7 +265,6 @@ void Statement_interp(Node* node){
                 currentStatus.doWhileLoop++;
 
                 int dividerLoc = condition_str.find("|");
-                int num = atoi((condition_str.substr(dividerLoc + 1, condition_str.size() - dividerLoc - 1)).c_str());
                 int var_pos = hashLookup(condition_str.substr(0, dividerLoc),variableAssignTable);
                 int var_reg;
                 if (var_pos != -1)
@@ -271,13 +274,17 @@ void Statement_interp(Node* node){
                         exit(1);
                 }
 
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << -num << std::endl;
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
                 std::cout << "LOOP_STATEMENT_" << tempNum << "\n\n";
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << num << std::endl;
+
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
                 Block& action = static_cast<DoWhileLoop*>(node)->action;
                 Expression_interp(&action);
 
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << -num << std::endl;
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
                 if (static_cast<Comparison&>(condition).op == 0) {
                         std::cout << "BRp LOOP_STATEMENT_" << tempNum << std::endl;
                 }
@@ -293,7 +300,8 @@ void Statement_interp(Node* node){
                 else if (static_cast<Comparison&>(condition).op == 4) {
                         std::cout << "BRz LOOP_STATEMENT_" << tempNum << std::endl;
                 }
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << num << std::endl;
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
 
         }
         if (node->type() == IFSTATEMENT){
@@ -314,8 +322,8 @@ void Statement_interp(Node* node){
                         exit(1);
                 }
 
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << -num << std::endl;
-
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
                 if(static_cast<Comparison&>(condition).op == 0) {
                         std::cout << "BRnz IF_STATEMENT_SKIP_" << tempNum << std::endl;
                 }
@@ -331,21 +339,48 @@ void Statement_interp(Node* node){
                 else if (static_cast<Comparison&>(condition).op == 4) {
                         std::cout << "BRnp IF_STATEMENT_SKIP_" << tempNum << std::endl;
                 }
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << num << std::endl;
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
 
                 Block& action = static_cast<IfStatement*>(node)->action;
                 Expression_interp(&action);
                 std::cout << "BR IF_STATEMENT_ALT_" << tempNum << "\n\n";
 
                 std::cout << "IF_STATEMENT_SKIP_" << tempNum << "\n\n";
-                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", #" << num << std::endl;
+                std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
+                std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
                 std::cout << "IF_STATEMENT_ALT_" << tempNum << "\n\n";
+        }
+        if (node->type() == RETURNSTATEMENT){
+                int a = hashLookup(currentStatus.function, functionDeclTable);
+                int value;
+                Expression& expression = static_cast<ReturnStatement*>(node)->expression;
+                if (expression.type() == IDENTIFIER){
+                        value = variableAssignTable.at(variablePosInHash(expression.get_name()))->get_value();
+                        std::cout << "STI R" << variableAssignTable.at(variablePosInHash(expression.get_name()))->get_reg()
+                                  << ", FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                }
+                else if (expression.type() == INTEGER){
+                        value = static_cast<Integer&>(expression).value;
+                }
 
-                //variableAssignTable = variableTableBackup.top();
-                //variableTableBackup.pop();
+                std::cout << ";-----------------load backups---------------\n";
+                std::cout << "LD R0, R0_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R1, R1_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R2, R2_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R3, R3_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R4, R4_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R5, R5_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R6, R6_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << "LD R7, R7_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
+                std::cout << ";--------------------------------------------\n";
+
+                if (functionDeclTable.at(a)->get_address() == 3000)
+                        std::cout << "HALT\n";
+                else
+                        std::cout << "RET\n";
         }
         if (node->type() == FUNCTIONDECLARATION){
-                //std::cout << "FunctionDeclaration\n";
                 currentStatus.reg = 0;
 
                 const Identifier& functionType = static_cast<FunctionDeclaration*>(node)->functionType;
@@ -383,7 +418,6 @@ void Statement_interp(Node* node){
                 std::cout << "ST R7, R7_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
                 std::cout << ";--------------------------------------------\n";
 
-
                 #define functionArguments static_cast<FunctionDeclaration*>(node)->arguments
                 if (!functionArguments.empty()){
                         std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
@@ -396,22 +430,6 @@ void Statement_interp(Node* node){
 
                 Block& block = static_cast<FunctionDeclaration*>(node)->block;
                 Expression_interp(&block);
-
-                std::cout << ";-----------------load backups---------------\n";
-                std::cout << "LD R0, R0_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R1, R1_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R2, R2_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R3, R3_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R4, R4_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R5, R5_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R6, R6_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LD R7, R7_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << ";--------------------------------------------\n";
-
-                if (functionDeclTable.at(a)->get_address() == 3000)
-                        std::cout << "HALT\n";
-                else
-                        std::cout << "RET\n";
 
                 std::cout << ";------------\n";
                 std::cout << ";Routine Data\n";
@@ -451,6 +469,10 @@ void Statement_interp(Node* node){
 
                 std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6000\n";
                 std::cout << "FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6001\n";
+                std::cout << "FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6002\n";
+                for (unsigned i = 0; i < currentStatus.comparisons.size(); i++){
+                        std::cout << "Compare_" << i << "\t.FILL\t#" << currentStatus.comparisons.at(i) << std::endl;
+                }
                 std::cout << "General_R7_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.BLKW\t#1\n";
 
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";

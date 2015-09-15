@@ -60,8 +60,9 @@ extern int yydebug;
     OB = 270,
     CB = 271,
     COMMA = 272,
-    DOWHILE = 273,
-    IF = 274
+    RETURN = 273,
+    DOWHILE = 274,
+    IF = 275
   };
 #endif
 
@@ -84,7 +85,7 @@ union YYSTYPE
         std::string *strVal;
         int token;
 
-#line 88 "src/parser.hpp" /* yacc.c:1909  */
+#line 89 "src/parser.hpp" /* yacc.c:1909  */
 };
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1

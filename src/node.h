@@ -114,7 +114,7 @@ public:
 class ReturnStatement : public Statement {
 public:
 	Expression& expression;
-	ReturnStatement(Expression& expression) : 
+	ReturnStatement(Expression& expression) :
 		expression(expression) { }
 	int type() {return RETURNSTATEMENT;};
 };
