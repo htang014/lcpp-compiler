@@ -9,6 +9,7 @@
 #include "hash.h"
 
 //macros for hash tables
+int CURRENTRETURNVALUE;
 #define currentFunctionPosInHash hashLookup(currentStatus.function,functionDeclTable)
 #define calledFunctionPosInHash hashLookup(calledFunctionName, functionDeclTable)
 #define variablePosInHash(x) hashLookup(x, variableAssignTable)
@@ -23,11 +24,17 @@ std::string Expression_interp(Node* node){
         if (node->type() == IDENTIFIER){
                 return node->get_name();
         }
+        if (node->type() == LCSTRING){
+                std::string str = static_cast<LCString*>(node)->str;
+                str.pop_back();
+                str.erase(str.begin());
+                return str;
+        }
         if (node->type() == METHODCALL){
                 const Identifier& id = static_cast<MethodCall*>(node)->id;
                 std::string calledFunctionName = Expression_interp(const_cast<Identifier*>(&id));
 
-                std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                std::cout << "LD R7, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
 
                 ExpressionList& arguments = static_cast<MethodCall*>(node)->arguments;
                 for (unsigned i = 0; i < arguments.size(); i++){
@@ -36,7 +43,7 @@ std::string Expression_interp(Node* node){
                         //The register # holding the value of the specified variable
                         int variableRegister = variableAssignTable.at(variablePosInHash(arguments.at(i)->get_name()))->get_reg();
 
-                        std::cout << "STR R" << variableRegister << ", R6, #" << i << std::endl;
+                        std::cout << "STR R" << variableRegister << ", R7, #" << i << std::endl;
                 }
 
                 functionDeclTable.at(calledFunctionPosInHash)->increment_invocation();
@@ -47,10 +54,9 @@ std::string Expression_interp(Node* node){
                 }
  
                 //outputs
-                std::cout << "STI R6, FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
-                std::cout << "LD R6, " << calledFunctionName << '_' << functionDeclTable.at(currentFunctionPosInHash)->get_address()  << std::endl;
-                std::cout << "JSRR R6\n";
-
+                std::cout << "STI R7, FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                std::cout << "LD R7, " << calledFunctionName << '_' << functionDeclTable.at(currentFunctionPosInHash)->get_address()  << std::endl;
+                std::cout << "JSRR R7\n";
 
                 return "MethodCall";
         }
@@ -111,8 +117,8 @@ std::string Expression_interp(Node* node){
         }
 
         if (node->type() == ASSIGNMENT){
-                std::cout << "ST R7, General_R7_Backup_"
-                          << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address() << "\n";
+                /*std::cout << "ST R7, General_R7_Backup_"
+                          << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address() << "\n";*/
 
                 Identifier& lhs = static_cast<Assignment*>(node)->lhs;
                 std::string lhs_value = Expression_interp(&lhs);
@@ -152,8 +158,8 @@ std::string Expression_interp(Node* node){
                                 exit(1);
                         }
                         std::cout << "ADD R" << baseReg << ", " << rhs_value << std::endl;
-                        std::cout << "LD R7, General_R7_Backup_"
-                                  << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address() << "\n";
+                        /*std::cout << "LD R7, General_R7_Backup_"
+                                  << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address() << "\n";*/
                 }
                 else if (rhs.type() == INTEGER){
                         int left_index = hashLookup(lhs_value,variableAssignTable);
@@ -175,6 +181,23 @@ std::string Expression_interp(Node* node){
                                   << functionDeclTable.at(hashLookup(currentStatus.function,functionDeclTable))->get_address()  << std::endl;
                         return rhs_value;
                 }
+                else if (rhs.type() == METHODCALL){
+                        int left_index = hashLookup(lhs_value,variableAssignTable);
+                        int left_reg = -1;
+                        if (left_index != -1)
+                                left_reg = variableAssignTable.at(left_index)->get_reg();
+                        else {
+                                std::cerr << "Variable defined but never declared.\n";
+                                exit(1);
+                        }
+                        variableAssignTable.at(left_index)->increment_invocation();
+                        int numRepititions = variableAssignTable.at(left_index)->get_times_invoked();
+
+                        variableAssignTable.at(left_index)->set_value(CURRENTRETURNVALUE);
+                        std::string new_label = lhs_value + "_" + std::to_string(numRepititions);
+
+                        std::cout << "LDI R" << left_reg << ", FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                }
                 return "Assignment";
         }
         if (node->type() == COMPARISON){
@@ -185,8 +208,15 @@ std::string Expression_interp(Node* node){
                 Expression& rhs = static_cast<Comparison*>(node)->rhs;
                 std::string rhs_value = Expression_interp(&rhs);
 
-                std::cout << "LD R7, " << "Compare_" << currentStatus.comparisons.size() << std::endl;
-                currentStatus.comparisons.push_back(atoi(rhs_value.c_str()));
+                std::cout << "LD R7, Compare_" << currentStatus.comparisons.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+
+                if (rhs.type() == INTEGER){
+                        currentStatus.comparisons.push_back(atoi(rhs_value.c_str()));
+                }
+                else if (rhs.type() == IDENTIFIER){
+                        std::string name = static_cast<Identifier&>(rhs).get_name();
+                        currentStatus.comparisons.push_back(variableAssignTable.at(variablePosInHash(name))->get_value());
+                }
 
                 return (lhs_value + "|" + rhs_value);
 
@@ -256,6 +286,17 @@ void Statement_interp(Node* node){
                         std::cerr << "Error: Too many variable declarations.\n";
                         exit(1);
                 }
+        }
+        if (node->type() == OUTSTATEMENT){
+                LCString& message = static_cast<OutStatement*>(node)->message;
+                std::string message_str = Expression_interp(&message);
+
+                std::cout << "General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                          << "LEA R0, String_" << currentStatus.strings.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                          << "PUTS\n"
+                          << "LD R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+
+                currentStatus.strings.push_back(message_str);
         }
         if (node->type() == DOWHILELOOP){
                 Expression& condition = static_cast<DoWhileLoop*>(node)->condition;
@@ -362,6 +403,9 @@ void Statement_interp(Node* node){
                 }
                 else if (expression.type() == INTEGER){
                         value = static_cast<Integer&>(expression).value;
+                        std::cout << "LD R7, ReturnInteger_" << currentStatus.integerReturns.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                        std::cout << "STI R7, FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                        currentStatus.integerReturns.push_back(value);
                 }
 
                 std::cout << ";-----------------load backups---------------\n";
@@ -379,6 +423,7 @@ void Statement_interp(Node* node){
                         std::cout << "HALT\n";
                 else
                         std::cout << "RET\n";
+                CURRENTRETURNVALUE = value;
         }
         if (node->type() == FUNCTIONDECLARATION){
                 currentStatus.reg = 0;
@@ -469,11 +514,17 @@ void Statement_interp(Node* node){
 
                 std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6000\n";
                 std::cout << "FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6001\n";
-                std::cout << "FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6002\n";
-                for (unsigned i = 0; i < currentStatus.comparisons.size(); i++){
-                        std::cout << "Compare_" << i << "\t.FILL\t#" << currentStatus.comparisons.at(i) << std::endl;
+                std::cout << "FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6008\n";
+                for (unsigned i = 0; i < currentStatus.integerReturns.size(); i++){
+                        std::cout << "ReturnInteger_" << i << "_"  << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\t#" << currentStatus.integerReturns.at(i) << std::endl;
                 }
-                std::cout << "General_R7_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.BLKW\t#1\n";
+                for (unsigned i = 0; i < currentStatus.comparisons.size(); i++){
+                        std::cout << "Compare_" << i << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address()  << "\t.FILL\t#" << currentStatus.comparisons.at(i) << std::endl;
+                }
+                for (unsigned i = 0; i < currentStatus.strings.size(); i++){
+                        std::cout << "String_" << i << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.STRINGZ\t\"" << currentStatus.strings.at(i) << "\"" << std::endl;
+                }
+                std::cout << "General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.BLKW\t#1\n";
 
                 std::cout << ";%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n";
                 std::cout << ";End of routine\n";

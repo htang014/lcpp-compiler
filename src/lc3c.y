@@ -13,6 +13,7 @@ void yyerror(const char *s);
         Integer *numeric;
         Statement *stmt;
         Identifier *ident;
+        LCString *lcstring;
         VariableDeclaration *var_decl;
         std::vector<VariableDeclaration*> *varvec;
         std::vector<Expression*> *exprvec;
@@ -20,18 +21,19 @@ void yyerror(const char *s);
         int token;
 }
 
-%token<strVal> INT ID
+%token<strVal> INT ID STRING
 %token<token> ADD SUB EQL ISGT ISLT ISGTE ISLTE ISEQ
 %token<token> OP CP OB CB COMMA
-%token<token> RETURN DOWHILE IF
+%token<token> RETURN DOWHILE IF OUTPUT
 
+%type<lcstring> lcstring
 %type<ident> ident
 %type<expr> expr condition
 %type<numeric> numeric
 %type<varvec> func_decl_args
 %type<exprvec> call_args
 %type<block> program stmts block
-%type<stmt> stmt var_decl func_decl return_statement do_while_statement if_statement
+%type<stmt> stmt var_decl func_decl return_statement do_while_statement if_statement out_statement
 
 %left ADD SUB
 
@@ -47,7 +49,7 @@ stmts : stmt { $$ = new Block(); $$->statements.push_back($<stmt>1); }
       ;
 
 stmt : var_decl | func_decl | if_statement | do_while_statement | return_statement
-     | expr { $$ = new ExpressionStatement(*$1); }
+     | out_statement | expr { $$ = new ExpressionStatement(*$1); }
      ;
 
 block : OB stmts CB { $$ = $2; }
@@ -69,6 +71,9 @@ func_decl_args : /*nothing*/ { $$ = new VariableList(); }
                | func_decl_args COMMA var_decl { $1->push_back($<var_decl>3); }
                ;
 
+out_statement : OUTPUT OP lcstring CP { $$ = new OutStatement(*$3); }
+              ;
+
 return_statement : RETURN expr { $$ = new ReturnStatement(*$2);}
                  ;
 
@@ -78,6 +83,9 @@ do_while_statement : DOWHILE OP condition CP block
 
 if_statement : IF OP condition CP block { $$ = new IfStatement(*$3, *$5); }
              ;
+
+lcstring : STRING { $$ = new LCString(*$1); delete $1; }
+         ;
 
 ident : ID { $$ = new Identifier(*$1); delete $1; }
       ;
@@ -127,9 +135,9 @@ int main(int argc, char **argv) {
                   << ";-------------------------------\n"
                   << ".ORIG x6000\n";
 
-        std::cout << "FuncCallBackup" << "\t.BLKW\t#1\n";
-        std::cout << "FuncCallParameters" << "\t.BLKW\t#7\n";
-        std::cout << "ComparisonStorage" << "\t.BLKW\t#30\n";
+        std::cout << "FuncCallBackup\t.BLKW\t#1\n";
+        std::cout << "FuncCallParameters\t.BLKW\t#7\n";
+        std::cout << "ReturnValue\t.BLKW\t#1\n";
 
         return 0;
 }

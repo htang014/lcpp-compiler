@@ -7,7 +7,8 @@ const unsigned NODE = 0,                EXPRESSION = 1,                 STATEMEN
                METHODCALL = 6,          BINARYOPERATOR = 7,             COMPARISON = 8,
                ASSIGNMENT = 9,          BLOCK = 10,                     EXPRESSIONSTATEMENT = 11,
                RETURNSTATEMENT = 12,    VARIABLEDECLARATION = 13,       FUNCTIONDECLARATION = 14,
-               DOWHILELOOP = 15,        IFSTATEMENT = 16;
+               DOWHILELOOP = 15,        IFSTATEMENT = 16,               OUTSTATEMENT = 17,
+               LCSTRING = 18;
 
 class Statement;
 class Expression;
@@ -31,6 +32,13 @@ public:
 class Statement : public Node {
 public:
         virtual int type() {return STATEMENT;};
+};
+
+class LCString : public Expression {
+public:
+        std::string str;
+        LCString(std::string str) : str(str) { }
+        int type() {return LCSTRING;}
 };
 
 class Integer : public Expression {
@@ -109,6 +117,14 @@ public:
 	ExpressionStatement(Expression& expression) : 
 		expression(expression) { }
 	int type() {return EXPRESSIONSTATEMENT;};
+};
+
+class OutStatement : public Statement {
+public:
+        LCString& message;
+        OutStatement(LCString& message) :
+                message(message) { }
+        int type() { return OUTSTATEMENT;}
 };
 
 class ReturnStatement : public Statement {

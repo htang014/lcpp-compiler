@@ -47,22 +47,24 @@ extern int yydebug;
   {
     INT = 258,
     ID = 259,
-    ADD = 260,
-    SUB = 261,
-    EQL = 262,
-    ISGT = 263,
-    ISLT = 264,
-    ISGTE = 265,
-    ISLTE = 266,
-    ISEQ = 267,
-    OP = 268,
-    CP = 269,
-    OB = 270,
-    CB = 271,
-    COMMA = 272,
-    RETURN = 273,
-    DOWHILE = 274,
-    IF = 275
+    STRING = 260,
+    ADD = 261,
+    SUB = 262,
+    EQL = 263,
+    ISGT = 264,
+    ISLT = 265,
+    ISGTE = 266,
+    ISLTE = 267,
+    ISEQ = 268,
+    OP = 269,
+    CP = 270,
+    OB = 271,
+    CB = 272,
+    COMMA = 273,
+    RETURN = 274,
+    DOWHILE = 275,
+    IF = 276,
+    OUTPUT = 277
   };
 #endif
 
@@ -79,13 +81,14 @@ union YYSTYPE
         Integer *numeric;
         Statement *stmt;
         Identifier *ident;
+        LCString *lcstring;
         VariableDeclaration *var_decl;
         std::vector<VariableDeclaration*> *varvec;
         std::vector<Expression*> *exprvec;
         std::string *strVal;
         int token;
 
-#line 89 "src/parser.hpp" /* yacc.c:1909  */
+#line 92 "src/parser.hpp" /* yacc.c:1909  */
 };
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
