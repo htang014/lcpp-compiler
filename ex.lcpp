@@ -1,0 +1,107 @@
+int main ( ) {
+        int first
+        int second
+        int pivot = 1000
+        int product
+
+        first = getInput( )
+        second = getInput( )
+
+        product = computeProduct(first, second)
+
+        out("result is: ")
+        printNum(product)
+        out("\n")
+
+        compareValues(product, pivot)
+        return 0
+}
+
+int getInput() {
+        int num
+        int num2
+        int ten = 10
+
+        in(num)
+        out(num)
+        num = num + -48
+        num = computeProduct(num, ten)
+        in(num2)
+        out(num2)
+        out("\n")
+        num2 = num2 + -48
+        num = num + num2
+        return num
+}
+
+int computeProduct(int x, int y) {
+        int z
+        z = x
+        dowhile(y > 1){
+                x = z + x
+                y = y + -1
+        }
+        return x
+}
+
+int compareValues(int first, int second) {
+        printNum(first)
+        second = second
+        if (first >= second) {
+                out(" is greater than or equal to 1000")
+        }
+        if (first < second) {
+                out(" is less than 1000")
+        }
+        out("\n")
+        return 0
+}
+
+int printNum(int num) {
+        int print
+
+        dowhile(num >= 0){
+                num = num + -1000
+                if (num >= 0){ 
+                        print = print + 1
+                }
+        }
+        num = num + 1000
+        print = print + 48
+        out(print)
+        print = 0
+        dowhile(num >= 0){
+                num = num + -100
+                if (num >= 0){ 
+                        print = print + 1
+                }
+        }
+        num = num + 100
+        print = print + 48
+        out(print)
+        print = 0
+        dowhile(num >= 0){
+                num = num + -10
+                if (num >= 0){ 
+                        print = print + 1
+                }
+        }
+        num = num + 10
+        print = print + 48
+        out(print)
+        print = 0
+        dowhile(num >= 0){
+                num = num + -1
+                if (num >= 0){ 
+                        print = print + 1
+                }
+        }
+        num = num + 1
+        print = print + 48
+        out(print)
+        print = 0
+
+        return num
+}
+
+

@@ -64,7 +64,8 @@ extern int yydebug;
     RETURN = 274,
     DOWHILE = 275,
     IF = 276,
-    OUTPUT = 277
+    OUTPUT = 277,
+    INPUT = 278
   };
 #endif
 
@@ -88,7 +89,7 @@ union YYSTYPE
         std::string *strVal;
         int token;
 
-#line 92 "src/parser.hpp" /* yacc.c:1909  */
+#line 93 "src/parser.hpp" /* yacc.c:1909  */
 };
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1

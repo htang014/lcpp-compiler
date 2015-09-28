@@ -21,6 +21,7 @@ extern "C" int yywrap() { }
 "=="                    { yylval.token = 4; return ISEQ; }
 "return"                { return RETURN; }
 "out"                   { return OUTPUT; }
+"in"                    { return INPUT; }
 "if"                    { return IF; }
 "dowhile"               { return DOWHILE; }
 -?[0-9]+                { SAVE_TOKEN; return INT; }

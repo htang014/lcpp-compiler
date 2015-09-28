@@ -24,7 +24,7 @@ void yyerror(const char *s);
 %token<strVal> INT ID STRING
 %token<token> ADD SUB EQL ISGT ISLT ISGTE ISLTE ISEQ
 %token<token> OP CP OB CB COMMA
-%token<token> RETURN DOWHILE IF OUTPUT
+%token<token> RETURN DOWHILE IF OUTPUT INPUT
 
 %type<lcstring> lcstring
 %type<ident> ident
@@ -33,7 +33,7 @@ void yyerror(const char *s);
 %type<varvec> func_decl_args
 %type<exprvec> call_args
 %type<block> program stmts block
-%type<stmt> stmt var_decl func_decl return_statement do_while_statement if_statement out_statement
+%type<stmt> stmt var_decl func_decl return_statement do_while_statement if_statement out_statement in_statement
 
 %left ADD SUB
 
@@ -49,7 +49,7 @@ stmts : stmt { $$ = new Block(); $$->statements.push_back($<stmt>1); }
       ;
 
 stmt : var_decl | func_decl | if_statement | do_while_statement | return_statement
-     | out_statement | expr { $$ = new ExpressionStatement(*$1); }
+     | out_statement | in_statement | expr { $$ = new ExpressionStatement(*$1); }
      ;
 
 block : OB stmts CB { $$ = $2; }
@@ -74,6 +74,9 @@ func_decl_args : /*nothing*/ { $$ = new VariableList(); }
 out_statement : OUTPUT OP lcstring CP { $$ = new OutStatement(*$3); }
               | OUTPUT OP ident CP { $$ = new OutStatement(*$3); }
               ;
+
+in_statement : INPUT OP ident CP { $$ = new InStatement(*$3); }
+             ;
 
 return_statement : RETURN expr { $$ = new ReturnStatement(*$2);}
                  ;

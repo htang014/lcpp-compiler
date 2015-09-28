@@ -8,7 +8,7 @@ const unsigned NODE = 0,                EXPRESSION = 1,                 STATEMEN
                ASSIGNMENT = 9,          BLOCK = 10,                     EXPRESSIONSTATEMENT = 11,
                RETURNSTATEMENT = 12,    VARIABLEDECLARATION = 13,       FUNCTIONDECLARATION = 14,
                DOWHILELOOP = 15,        IFSTATEMENT = 16,               OUTSTATEMENT = 17,
-               LCSTRING = 18;
+               INSTATEMENT = 18,        LCSTRING = 19;
 
 class Statement;
 class Expression;
@@ -130,6 +130,14 @@ public:
         OutStatement(Identifier& variable) :
                 variable(variable) { }
         int type() { return OUTSTATEMENT;}
+};
+
+class InStatement : public Statement {
+public:
+        Identifier& variable;
+        InStatement(Identifier& variable) :
+                variable(variable) { }
+        int type() { return INSTATEMENT;}
 };
 
 class ReturnStatement : public Statement {

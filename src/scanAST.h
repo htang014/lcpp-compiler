@@ -210,14 +210,13 @@ std::string Expression_interp(Node* node){
                 Expression& rhs = static_cast<Comparison*>(node)->rhs;
                 std::string rhs_value = Expression_interp(&rhs);
 
-                std::cout << "LD R7, Compare_" << currentStatus.comparisons.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
-
                 if (rhs.type() == INTEGER){
+                        std::cout << "LD R7, Compare_" << currentStatus.comparisons.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
                         currentStatus.comparisons.push_back(atoi(rhs_value.c_str()));
                 }
                 else if (rhs.type() == IDENTIFIER){
+                        std::cout << "ADD R7, R" << variableAssignTable.at(variablePosInHash(rhs_value))->get_reg() << ", #0\n";
                         std::string name = static_cast<Identifier&>(rhs).get_name();
-                        currentStatus.comparisons.push_back(variableAssignTable.at(variablePosInHash(name))->get_value());
                 }
 
                 return (lhs_value + "|" + rhs_value);
@@ -318,6 +317,17 @@ void Statement_interp(Node* node){
                         currentStatus.ascii.push_back(variableAssignTable.at(variablePosInHash(variableName))->get_value());
                 }
         }
+        if (node->type() == INSTATEMENT){
+                Identifier& variable = static_cast<InStatement*>(node)->variable;
+                std::string variableName = Expression_interp(&variable);
+
+                std::cout << "ST R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                          << "GETC\n" << "ADD R" << variableAssignTable.at(variablePosInHash(variableName))->get_reg() << ", R0, #0\n";
+
+                if (variableAssignTable.at(variablePosInHash(variableName))->get_reg() != 0){
+                        std::cout << "LD R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                }
+        }
         if (node->type() == DOWHILELOOP){
                 Expression& condition = static_cast<DoWhileLoop*>(node)->condition;
                 std::string condition_str = Expression_interp(&condition);
@@ -334,6 +344,7 @@ void Statement_interp(Node* node){
                         std::cerr << "Error: variable does not exist\n";
                         exit(1);
                 }
+
 
                 std::cout << "NOT R7, R7\n" << "ADD R7, R7, #1\n";
                 std::cout << "ADD R" << var_reg << ", R" << var_reg << ", R7" << std::endl;
@@ -470,7 +481,7 @@ void Statement_interp(Node* node){
 
                 int a = hashLookup(functionNameString, functionDeclTable);
                 std::cout << ".ORIG x" << functionDeclTable.at(a)->get_address() << std::endl;
-                std::cout << "LDI R6, FuncCallBackupAddr_" << functionDeclTable.at(a)->get_address() << std::endl;
+                //std::cout << "LDI R7, FuncCallBackupAddr_" << functionDeclTable.at(a)->get_address() << std::endl;
 
                 std::cout << ";----------------store backups---------------\n";
                 std::cout << "ST R0, R0_BACKUP_" << functionDeclTable.at(a)->get_address() << std::endl;
@@ -485,9 +496,9 @@ void Statement_interp(Node* node){
 
                 #define functionArguments static_cast<FunctionDeclaration*>(node)->arguments
                 if (!functionArguments.empty()){
-                        std::cout << "LD R6, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                        std::cout << "LD R7, FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
                         for (unsigned i = 0; i < functionArguments.size(); i++){
-                                std::cout << "LDR R" << i << ", R6, #" << i << std::endl;
+                                std::cout << "LDR R" << i << ", R7, #" << i << std::endl;
                                 currentStatus.variableIsArgument = 1;
                                 Statement_interp(functionArguments.at(i));
                         }
@@ -555,6 +566,7 @@ void Statement_interp(Node* node){
                 variableTableBackup.pop();
                 variablePositions = variablePositionsBackup.top();
                 variablePositionsBackup.pop();
+                currentStatus.comparisons.clear();
 
         }
 }
