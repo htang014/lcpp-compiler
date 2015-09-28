@@ -120,6 +120,17 @@ in(var)
 ```
 This will store the ascii value of the character you typed into the variable `var`
 
+### Compiling
+Type:
+```
+bin/lc3c [filename]
+```
+to compile to standard output, or
+```
+bin/lc3c [filename] > [outfile]
+```
+to redirect output
+
 ## Future checklist
 * Add proper type-checking
 * Add better arithmetic capability
