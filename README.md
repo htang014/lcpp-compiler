@@ -127,4 +127,5 @@ This will store the ascii value of the character you typed into the variable `va
 * Implement conditional connectors (&&, ||, !)
 * !=
 * else if, else, while, for
+* Pointers
 * Fix various edge case bugs
