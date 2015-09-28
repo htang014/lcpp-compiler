@@ -120,3 +120,12 @@ To input a character from the keyboard, type:
 in(var)
 ```
 This will store the ascii value of the character you typed into the variable `var`
+
+## Future checklist
+* Add proper type-checking
+* Add better arithmetic capability
+* Improve I/O functionality
+* Implement conditional connectors (&&, ||, !)
+* !=
+* else if, else, while, for
+* Fix various edge case bugs
