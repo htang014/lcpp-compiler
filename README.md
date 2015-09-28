@@ -12,7 +12,6 @@ $ git checkout lc3c
 $ make
 
 ```
-
 ## Usage
 ### Syntax
 * All instructions should be typed inside a function.
