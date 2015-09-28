@@ -37,6 +37,7 @@ public:
 class LCString : public Expression {
 public:
         std::string str;
+        LCString( ) : str("") { }
         LCString(std::string str) : str(str) { }
         int type() {return LCSTRING;}
 };
@@ -59,6 +60,7 @@ class Identifier : public Expression {
 private:
         std::string name;
 public:
+        Identifier( ) : name("") { }
 	Identifier(const std::string& name) : name(name) { }
 
 	std::string get_name() {return name;}
@@ -121,9 +123,12 @@ public:
 
 class OutStatement : public Statement {
 public:
-        LCString& message;
+        Identifier variable;
+        LCString message;
         OutStatement(LCString& message) :
                 message(message) { }
+        OutStatement(Identifier& variable) :
+                variable(variable) { }
         int type() { return OUTSTATEMENT;}
 };
 

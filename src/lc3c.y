@@ -72,6 +72,7 @@ func_decl_args : /*nothing*/ { $$ = new VariableList(); }
                ;
 
 out_statement : OUTPUT OP lcstring CP { $$ = new OutStatement(*$3); }
+              | OUTPUT OP ident CP { $$ = new OutStatement(*$3); }
               ;
 
 return_statement : RETURN expr { $$ = new ReturnStatement(*$2);}

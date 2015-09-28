@@ -11,12 +11,13 @@ struct Status {
         std::vector<unsigned> comparisons;
         std::vector<unsigned> integerReturns;
         std::vector<std::string> strings;
+        std::vector<int> ascii;
         unsigned ifStatement;
         unsigned doWhileLoop;
         std::string function;
         bool variableIsArgument;
 
-        Status ( ) : reg(0), address(3000), comparisons(0), integerReturns(0), strings(0), ifStatement(0), doWhileLoop(0), function("main"), variableIsArgument(0) { }
+        Status ( ) : reg(0), address(3000), comparisons(0), integerReturns(0), strings(0), ascii(0), ifStatement(0), doWhileLoop(0), function("main"), variableIsArgument(0) { }
 };
 
 std::vector<int> passedInValues;

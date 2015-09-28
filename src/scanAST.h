@@ -26,8 +26,10 @@ std::string Expression_interp(Node* node){
         }
         if (node->type() == LCSTRING){
                 std::string str = static_cast<LCString*>(node)->str;
-                str.pop_back();
-                str.erase(str.begin());
+                if (!str.empty()){
+                        str.pop_back();
+                        str.erase(str.begin());
+                }
                 return str;
         }
         if (node->type() == METHODCALL){
@@ -291,12 +293,30 @@ void Statement_interp(Node* node){
                 LCString& message = static_cast<OutStatement*>(node)->message;
                 std::string message_str = Expression_interp(&message);
 
-                std::cout << "General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
-                          << "LEA R0, String_" << currentStatus.strings.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
-                          << "PUTS\n"
-                          << "LD R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                Identifier& variable = static_cast<OutStatement*>(node)->variable;
+                std::string variableName = Expression_interp(&variable);
 
-                currentStatus.strings.push_back(message_str);
+                if (message_str == "\n"){
+                        std::cout << "ST R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                                  << "LD R0, newline_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\nOUT\n"
+                                  << "LD R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+                }
+                else if (message_str != ""){
+                        std::cout << "ST R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                                  << "LEA R0, String_" << currentStatus.strings.size() << "_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                                  << "PUTS\n"
+                                  << "LD R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+
+                        currentStatus.strings.push_back(message_str);
+                }
+                else if (variableName != ""){
+                        std::cout << "ST R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl
+                                  << "ADD R0, R" << variableAssignTable.at(variablePosInHash(variableName))->get_reg() << ", #0\n"
+                                  << "OUT\n"
+                                  << "LD R0, General_Backup_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << std::endl;
+
+                        currentStatus.ascii.push_back(variableAssignTable.at(variablePosInHash(variableName))->get_value());
+                }
         }
         if (node->type() == DOWHILELOOP){
                 Expression& condition = static_cast<DoWhileLoop*>(node)->condition;
@@ -515,6 +535,7 @@ void Statement_interp(Node* node){
                 std::cout << "FuncCallBackupAddr_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6000\n";
                 std::cout << "FuncCallParameters_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6001\n";
                 std::cout << "FunctionReturn_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\tx6008\n";
+                std::cout << "newline_" << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\t#10\n";
                 for (unsigned i = 0; i < currentStatus.integerReturns.size(); i++){
                         std::cout << "ReturnInteger_" << i << "_"  << functionDeclTable.at(currentFunctionPosInHash)->get_address() << "\t.FILL\t#" << currentStatus.integerReturns.at(i) << std::endl;
                 }
