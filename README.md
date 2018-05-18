@@ -1,5 +1,5 @@
 # lcpp-compiler
-A compiler from a toy "lcpp" language to LC3 assembly code.  Please note that this program is not complete.
+A compiler from a toy "lcpp" language to LC3 assembly code.
 
 ## Installation
 Ensure that you have the latest versions of git, GCC, flex, and bison.
